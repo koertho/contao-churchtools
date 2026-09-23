@@ -1,0 +1,18 @@
+{
+  "observedOn": "2026-09-16",
+  "calendarId": 110,
+  "appointmentIds": [
+    812,
+    815
+  ],
+  "field": "appointment.base.description",
+  "type": "string",
+  "value": "Super beschreibung\n__Test__ \n**Frosch**\n<bold>Hi</bold>",
+  "observations": {
+    "lineBreaks": true,
+    "literalMarkdownMarkers": true,
+    "literalHtmlLikeTag": true,
+    "blankLineParagraphSeparator": false,
+    "linkPresent": false
+  }
+}

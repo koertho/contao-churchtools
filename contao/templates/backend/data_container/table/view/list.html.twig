@@ -1,0 +1,10 @@
+{% extends '@Contao/backend/data_container/table/view/list.html.twig' %}
+
+{% block listing %}
+    {% if table_name in ['tl_church_tools_archive', 'tl_church_tools_entry'] %}
+        <div class="tl_listing_container">
+            <h2>{{ ('MOD.' ~ table_name)|trans({}, 'contao_modules') }}</h2>
+        </div>
+    {% endif %}
+    {{ parent() }}
+{% endblock %}

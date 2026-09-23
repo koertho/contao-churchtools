@@ -1,0 +1,78 @@
+{
+    "observedAt": "2026-09-15T07:27:17+00:00",
+    "occurrences": [
+        {
+            "calendarId": 110,
+            "appointmentId": 797,
+            "title": "Hallo Welt",
+            "allDay": false,
+            "baseStart": "2026-09-21T08:00:00Z",
+            "baseEnd": "2026-09-21T09:00:00Z",
+            "calculated": {
+                "startDate": "2026-09-21T08:00:00Z",
+                "endDate": "2026-09-21T09:00:00Z",
+                "iCalUid": "a2cdb23f5ce5cd5308350a75727bd181@jzm.church.tools"
+            },
+            "tags": [
+                {
+                    "id": 32,
+                    "name": "Tag1",
+                    "description": null,
+                    "color": "basic"
+                },
+                {
+                    "id": 35,
+                    "name": "Tag2",
+                    "description": null,
+                    "color": "basic"
+                }
+            ],
+            "tagFieldNames": [
+                [
+                    "id",
+                    "name",
+                    "description",
+                    "color",
+                    "count"
+                ],
+                [
+                    "id",
+                    "name",
+                    "description",
+                    "color",
+                    "count"
+                ]
+            ]
+        },
+        {
+            "calendarId": 110,
+            "appointmentId": 806,
+            "title": "Mehrere Tage",
+            "allDay": true,
+            "baseStart": "2026-09-23",
+            "baseEnd": "2026-09-25",
+            "calculated": {
+                "startDate": "2026-09-23",
+                "endDate": "2026-09-25",
+                "iCalUid": "3cc064b167fcea3476a28b91baf80b64@jzm.church.tools"
+            },
+            "tags": [],
+            "tagFieldNames": []
+        },
+        {
+            "calendarId": 110,
+            "appointmentId": 809,
+            "title": "Mehrere Tage",
+            "allDay": false,
+            "baseStart": "2026-09-26T08:00:00Z",
+            "baseEnd": "2026-09-27T09:00:00Z",
+            "calculated": {
+                "startDate": "2026-09-26T08:00:00Z",
+                "endDate": "2026-09-27T09:00:00Z",
+                "iCalUid": "f86ead3a840020ea423848eb6c6e5510@jzm.church.tools"
+            },
+            "tags": [],
+            "tagFieldNames": []
+        }
+    ]
+}

@@ -1,0 +1,47 @@
+{
+    "name": "koertho/contao-churchtools",
+    "description": "Read-only ChurchTools appointment integration for Contao",
+    "type": "contao-bundle",
+    "license": "LGPL-3.0-or-later",
+    "require": {
+        "php": "^8.4",
+        "ext-json": "*",
+        "contao/core-bundle": "^5.7 || ^6.0",
+        "contao/calendar-bundle": "^5.7 || ^6.0",
+        "contao/manager-plugin": "^2.4",
+        "symfony/config": "^7.4 || ^8.0",
+        "symfony/console": "^7.4 || ^8.0",
+        "symfony/dependency-injection": "^7.4 || ^8.0",
+        "symfony/http-client": "^7.4 || ^8.0",
+        "symfony/http-client-contracts": "^3.5",
+        "symfony/http-kernel": "^7.4 || ^8.0",
+        "doctrine/dbal": "^4.3",
+        "psr/log": "^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Koertho\\ChurchToolsBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Koertho\\ChurchToolsBundle\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "contao-manager-plugin": "Koertho\\ChurchToolsBundle\\ContaoManager\\Plugin"
+    },
+    "config": {
+        "allow-plugins": {
+            "contao-components/installer": true,
+            "php-http/discovery": false,
+            "contao/manager-plugin": true
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    }
+}

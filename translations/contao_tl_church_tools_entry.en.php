@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'tl_church_tools_entry.occurrenceUid.0' => 'Occurrence UID',
+    'tl_church_tools_entry.occurrenceUid.1' => '',
+    'tl_church_tools_entry.sourceAppointmentId.0' => 'Source appointment ID',
+    'tl_church_tools_entry.sourceAppointmentId.1' => '',
+    'tl_church_tools_entry.sourceCalendarId.0' => 'Source calendar ID',
+    'tl_church_tools_entry.sourceCalendarId.1' => '',
+    'tl_church_tools_entry.calendarName.0' => 'Calendar',
+    'tl_church_tools_entry.calendarName.1' => '',
+    'tl_church_tools_entry.title.0' => 'Title',
+    'tl_church_tools_entry.title.1' => '',
+    'tl_church_tools_entry.description.0' => 'Description',
+    'tl_church_tools_entry.description.1' => '',
+    'tl_church_tools_entry.allDay.0' => 'All day',
+    'tl_church_tools_entry.allDay.1' => '',
+    'tl_church_tools_entry.sourceStart.0' => 'Source start',
+    'tl_church_tools_entry.sourceStart.1' => '',
+    'tl_church_tools_entry.sourceEnd.0' => 'Source end',
+    'tl_church_tools_entry.sourceEnd.1' => '',
+    'tl_church_tools_entry.startTimestamp.0' => 'Start instant',
+    'tl_church_tools_entry.startTimestamp.1' => '',
+    'tl_church_tools_entry.endTimestamp.0' => 'End instant',
+    'tl_church_tools_entry.endTimestamp.1' => '',
+    'tl_church_tools_entry.startDate.0' => 'Start date',
+    'tl_church_tools_entry.startDate.1' => '',
+    'tl_church_tools_entry.endDate.0' => 'Inclusive end date',
+    'tl_church_tools_entry.endDate.1' => '',
+    'tl_church_tools_entry.tags.0' => 'Tags',
+    'tl_church_tools_entry.tags.1' => '',
+    'tl_church_tools_entry.contaoEventId.0' => 'Contao event ID',
+    'tl_church_tools_entry.contaoEventId.1' => '',
+    'tl_church_tools_entry.pid.0' => 'Archive',
+    'tl_church_tools_entry.pid.1' => '',
+];

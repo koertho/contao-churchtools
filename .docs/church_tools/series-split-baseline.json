@@ -1,0 +1,89 @@
+{
+    "observedAt": "2026-09-16T05:54:23+00:00",
+    "window": {
+        "from": "2026-08-16",
+        "to": "2027-09-17"
+    },
+    "occurrences": [
+        {
+            "calendarId": 110,
+            "appointmentId": 812,
+            "title": "Wiederholungstest 2",
+            "baseStart": "2026-09-21T05:00:00Z",
+            "baseEnd": "2026-09-21T06:00:00Z",
+            "repeatId": 1,
+            "repeatFrequency": 2,
+            "repeatUntil": "2026-09-30",
+            "exceptions": [],
+            "calculated": {
+                "startDate": "2026-09-21T05:00:00Z",
+                "endDate": "2026-09-21T06:00:00Z",
+                "iCalUid": "75ca592a8bb8ccebef0ddf728bd36e15@jzm.church.tools"
+            }
+        },
+        {
+            "calendarId": 110,
+            "appointmentId": 812,
+            "title": "Wiederholungstest 2",
+            "baseStart": "2026-09-21T05:00:00Z",
+            "baseEnd": "2026-09-21T06:00:00Z",
+            "repeatId": 1,
+            "repeatFrequency": 2,
+            "repeatUntil": "2026-09-30",
+            "exceptions": [],
+            "calculated": {
+                "startDate": "2026-09-23T05:00:00Z",
+                "endDate": "2026-09-23T06:00:00Z",
+                "iCalUid": "9d870e283fa22f0847d8ff012ab94500@jzm.church.tools"
+            }
+        },
+        {
+            "calendarId": 110,
+            "appointmentId": 812,
+            "title": "Wiederholungstest 2",
+            "baseStart": "2026-09-21T05:00:00Z",
+            "baseEnd": "2026-09-21T06:00:00Z",
+            "repeatId": 1,
+            "repeatFrequency": 2,
+            "repeatUntil": "2026-09-30",
+            "exceptions": [],
+            "calculated": {
+                "startDate": "2026-09-25T05:00:00Z",
+                "endDate": "2026-09-25T06:00:00Z",
+                "iCalUid": "77269ea7d88831456546d50878b8b78e@jzm.church.tools"
+            }
+        },
+        {
+            "calendarId": 110,
+            "appointmentId": 812,
+            "title": "Wiederholungstest 2",
+            "baseStart": "2026-09-21T05:00:00Z",
+            "baseEnd": "2026-09-21T06:00:00Z",
+            "repeatId": 1,
+            "repeatFrequency": 2,
+            "repeatUntil": "2026-09-30",
+            "exceptions": [],
+            "calculated": {
+                "startDate": "2026-09-27T05:00:00Z",
+                "endDate": "2026-09-27T06:00:00Z",
+                "iCalUid": "d9173db434b1a813f4f9b9a8d75656fa@jzm.church.tools"
+            }
+        },
+        {
+            "calendarId": 110,
+            "appointmentId": 812,
+            "title": "Wiederholungstest 2",
+            "baseStart": "2026-09-21T05:00:00Z",
+            "baseEnd": "2026-09-21T06:00:00Z",
+            "repeatId": 1,
+            "repeatFrequency": 2,
+            "repeatUntil": "2026-09-30",
+            "exceptions": [],
+            "calculated": {
+                "startDate": "2026-09-29T05:00:00Z",
+                "endDate": "2026-09-29T06:00:00Z",
+                "iCalUid": "ad889232a819af1a5e922dfad1501b2a@jzm.church.tools"
+            }
+        }
+    ]
+}

@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'tl_church_tools_entry.occurrenceUid.0' => 'Occurrence-UID',
+    'tl_church_tools_entry.occurrenceUid.1' => '',
+    'tl_church_tools_entry.sourceAppointmentId.0' => 'Quelltermin-ID',
+    'tl_church_tools_entry.sourceAppointmentId.1' => '',
+    'tl_church_tools_entry.sourceCalendarId.0' => 'Quellkalender-ID',
+    'tl_church_tools_entry.sourceCalendarId.1' => '',
+    'tl_church_tools_entry.calendarName.0' => 'Kalender',
+    'tl_church_tools_entry.calendarName.1' => '',
+    'tl_church_tools_entry.title.0' => 'Titel',
+    'tl_church_tools_entry.title.1' => '',
+    'tl_church_tools_entry.description.0' => 'Beschreibung',
+    'tl_church_tools_entry.description.1' => '',
+    'tl_church_tools_entry.allDay.0' => 'Ganztägig',
+    'tl_church_tools_entry.allDay.1' => '',
+    'tl_church_tools_entry.sourceStart.0' => 'Quellbeginn',
+    'tl_church_tools_entry.sourceStart.1' => '',
+    'tl_church_tools_entry.sourceEnd.0' => 'Quellende',
+    'tl_church_tools_entry.sourceEnd.1' => '',
+    'tl_church_tools_entry.startTimestamp.0' => 'Beginn als Zeitpunkt',
+    'tl_church_tools_entry.startTimestamp.1' => '',
+    'tl_church_tools_entry.endTimestamp.0' => 'Ende als Zeitpunkt',
+    'tl_church_tools_entry.endTimestamp.1' => '',
+    'tl_church_tools_entry.startDate.0' => 'Beginndatum',
+    'tl_church_tools_entry.startDate.1' => '',
+    'tl_church_tools_entry.endDate.0' => 'Inklusives Enddatum',
+    'tl_church_tools_entry.endDate.1' => '',
+    'tl_church_tools_entry.tags.0' => 'Tags',
+    'tl_church_tools_entry.tags.1' => '',
+    'tl_church_tools_entry.contaoEventId.0' => 'Contao-Termin-ID',
+    'tl_church_tools_entry.contaoEventId.1' => '',
+    'tl_church_tools_entry.pid.0' => 'Archiv',
+    'tl_church_tools_entry.pid.1' => '',
+];

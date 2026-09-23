@@ -1,0 +1,24 @@
+{
+    "observedAt": "2026-09-16T05:48:56+00:00",
+    "window": {
+        "from": "2026-08-16",
+        "to": "2027-03-16"
+    },
+    "calendarCount": 16,
+    "calendarMeta": {
+        "count": 16
+    },
+    "normalCount": 158,
+    "normalMeta": {
+        "count": 158
+    },
+    "limit5Count": 158,
+    "limit5Meta": {
+        "count": 158
+    },
+    "sameUidMultiset": true,
+    "missingUidCount": 0,
+    "uniqueUidCount": 158,
+    "duplicateUidGroups": 0,
+    "crossCalendarDuplicateUidGroups": 0
+}

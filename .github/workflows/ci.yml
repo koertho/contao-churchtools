@@ -1,0 +1,57 @@
+name: Compatibility
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4']
+        contao: ['5.7.*', '6.0.*']
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: matrix
+          MARIADB_DATABASE: churchtools_step3_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      CHURCHTOOLS_TEST_DATABASE_URL: mysql://root:matrix@127.0.0.1:3306/churchtools_step3_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, intl, mbstring, pdo_mysql, zip, gd
+          tools: composer:v2
+          coverage: none
+      - run: composer validate --strict --no-check-lock
+      - name: Create independent managed installation
+        run: php tools/create-matrix-project.php '${{ matrix.contao }}' "$RUNNER_TEMP/churchtools-matrix"
+      - name: Resolve and install
+        working-directory: ${{ runner.temp }}/churchtools-matrix
+        run: |
+          composer update --no-interaction --prefer-dist
+          composer check-platform-reqs
+          composer install --no-interaction --prefer-dist
+      - name: Verify manager discovery and container boot
+        run: php "$RUNNER_TEMP/churchtools-matrix/matrix-boot.php"
+      - name: Controlled client and setup tests with target dependencies
+        run: php "$RUNNER_TEMP/churchtools-matrix/vendor/bin/phpunit" --bootstrap "$RUNNER_TEMP/churchtools-matrix/vendor/autoload.php" --configuration phpunit.xml.dist
+      - name: Preview isolated DCA schema
+        run: php tools/storage-test.php "$RUNNER_TEMP/churchtools-matrix"
+      - name: Install and verify isolated storage
+        run: php tools/storage-test.php "$RUNNER_TEMP/churchtools-matrix" --apply
+      - name: Verify transactional synchronization and safe cleanup
+        run: php tools/sync-test.php "$RUNNER_TEMP/churchtools-matrix"
+      - name: Preview missing backend core tables in isolated database
+        run: php tools/backend-schema.php "$RUNNER_TEMP/churchtools-matrix"
+      - name: Install only missing backend core tables
+        run: php tools/backend-schema.php "$RUNNER_TEMP/churchtools-matrix" --apply
+      - name: Authenticated backend, permissions and API outage acceptance
+        run: php tools/backend-test.php "$RUNNER_TEMP/churchtools-matrix"

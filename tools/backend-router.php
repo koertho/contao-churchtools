@@ -10,6 +10,7 @@ if (!$project || !preg_match('~/churchtools_step3_[a-z0-9_]+(?:\?|$)~D', getenv(
 }
 require $project.'/vendor/autoload.php';
 require dirname(__DIR__).'/tests/Backend/FixtureClient.php';
+require dirname(__DIR__).'/tests/EventIntegration/ResolverController.php';
 \Contao\ManagerBundle\HttpKernel\ContaoKernel::setProjectDir($project);
 $kernel = new \Contao\ManagerBundle\HttpKernel\ContaoKernel('backend_test', false);
 $kernel->boot();

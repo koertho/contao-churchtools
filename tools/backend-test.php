@@ -12,8 +12,10 @@ $url = getenv('CHURCHTOOLS_TEST_DATABASE_URL') ?: '';
 if (!is_file($project.'/vendor/autoload.php') || !preg_match('~/churchtools_step3_[a-z0-9_]+(?:\?|$)~D', $url) || (!str_starts_with($project, '/') || !str_starts_with(basename($project), 'churchtools-matrix'))) {
     throw new RuntimeException('Explicit isolated matrix project/database required.');
 }
+if (!is_dir($project.'/system/tmp')) mkdir($project.'/system/tmp', 0775, true);
 require $project.'/vendor/autoload.php';
 require dirname(__DIR__).'/tests/Sync/RemoteFixture.php';
+require dirname(__DIR__).'/tests/EventIntegration/ResolverController.php';
 $kernel = ContaoKernel::fromInput($project, new ArrayInput(['--env' => 'prod', '--no-debug' => true]));
 $kernel->boot();
 $c = $kernel->getContainer();
@@ -29,14 +31,20 @@ $prefix = 'ct_backend_'.bin2hex(random_bytes(5));
 $users = $groups = $archives = $entries = [];
 $process = null;
 $calendarId = $eventId = null;
+$extraCalendars = [];
+$pages = $members = $memberGroups = $articles = [];
 $config = $project.'/config/config_backend_test.yaml';
 if (file_exists($config)) throw new RuntimeException('Refusing to overwrite existing backend test configuration.');
+$routes = $project.'/config/routes.yaml';
+if (file_exists($routes)) throw new RuntimeException('Refusing existing matrix routes.');
+file_put_contents($routes, "church_tools_resolver_test:\n  path: /ct-resolver\n  controller: Koertho\\ChurchToolsBundle\\Tests\\EventIntegration\\ResolverController\n  defaults: { _scope: frontend }\n");
 $state = $project.'/'.$prefix.'.state';
 $GLOBALS['ct_state'] = $state;
 $sessionDir = $project.'/var/'.$prefix;
 mkdir($sessionDir, 0700, true);
 file_put_contents($state, 'online');
-file_put_contents($config, "imports:\n  - { resource: config.yaml }\nframework:\n  session:\n    save_path: '$sessionDir'\nservices:\n  church_tools.http_client:\n    class: Symfony\\Component\\HttpClient\\MockHttpClient\n    factory: ['Koertho\\ChurchToolsBundle\\Tests\\Backend\\FixtureClient', create]\n");
+file_put_contents($config, "imports:\n  - { resource: config.yaml }\ncontao:\n  cron: { web_listener: false }\n  messenger:\n    web_worker: { transports: [] }\n  search:\n    listener: { index: false, delete: false }\nframework:\n  session:\n    save_path: '$sessionDir'\nservices:\n  church_tools.http_client:\n    class: Symfony\\Component\\HttpClient\\MockHttpClient\n    factory: ['Koertho\\ChurchToolsBundle\\Tests\\Backend\\FixtureClient', create]\n");
+file_put_contents($config, "  Koertho\\ChurchToolsBundle\\Tests\\EventIntegration\\ResolverController:\n    autowire: true\n    autoconfigure: true\n    public: true\n    tags: ['controller.service_arguments']\n", FILE_APPEND);
 $fs = new Symfony\Component\Filesystem\Filesystem();
 $fs->remove($project.'/var/cache/backend_test');
 // An ephemeral loopback server exercises routing, firewall, login, CSRF, DC_Table and real saves.
@@ -233,13 +241,30 @@ try {
     $check(str_contains($r[1], 'Letzte erfolgreiche Synchronisierung') && str_contains($r[1], 'verknüpfte Quelleinträge'), 'German backend translations');
     $check($db->fetchAllAssociative('SELECT * FROM tl_church_tools_entry WHERE pid=? ORDER BY id', [$a]) === $beforeEntries, 'All source rows/link IDs unchanged after reads and forged writes');
     $check($db->fetchAssociative('SELECT * FROM tl_calendar_events WHERE id=?', [$eventId]) === $eventBefore, 'Linked core event remains byte-identical');
+    require dirname(__DIR__).'/tests/EventIntegration/BackendAcceptance.php';
+    require dirname(__DIR__).'/tests/EventIntegration/ResolverAcceptance.php';
+    require dirname(__DIR__).'/tests/Frontend/FrontendAcceptance.php';
 } catch (Throwable $failure) {
-    fwrite(STDERR, 'Backend HTTP acceptance FAIL: '.$failure->getMessage().PHP_EOL);
+    fwrite(STDERR, 'Backend HTTP acceptance FAIL after '.$count.' checks: '.$failure->getMessage().PHP_EOL);
     $failed = true;
 } finally {
     if (is_resource($process)) { proc_terminate($process); proc_close($process); }
     foreach ($archives as $id) { $db->delete('tl_church_tools_entry', ['pid'=>$id]); $db->delete('tl_church_tools_archive', ['id'=>$id]); }
-    if ($eventId !== null) $db->delete('tl_calendar_events', ['id'=>$eventId]);
+    foreach (array_filter([$calendarId, ...$extraCalendars]) as $ownedCalendar) {
+        foreach ($db->fetchFirstColumn('SELECT id FROM tl_calendar_events WHERE pid=?', [$ownedCalendar]) as $ownedEvent) {
+            $db->delete('tl_content', ['pid'=>$ownedEvent, 'ptable'=>'tl_calendar_events']);
+            $db->delete('tl_version', ['pid'=>$ownedEvent, 'fromTable'=>'tl_calendar_events']);
+        }
+        $db->delete('tl_calendar_events', ['pid'=>$ownedCalendar]);
+    }
+    foreach ($articles as $ownedArticle) $db->delete('tl_article', ['id'=>$ownedArticle]);
+    foreach ($pages as $ownedPage) {
+        foreach (['&quot;', '"'] as $quote) $db->delete('tl_log', ['source'=>'FE', 'action'=>'ERROR', 'text'=>'Page ID '.$quote.$ownedPage.$quote.' does not belong to a root page']);
+        $db->delete('tl_page', ['id'=>$ownedPage]);
+    }
+    foreach ($members as $ownedMember) $db->delete('tl_member', ['id'=>$ownedMember]);
+    foreach ($memberGroups as $ownedGroup) $db->delete('tl_member_group', ['id'=>$ownedGroup]);
+    foreach ($extraCalendars as $ownedCalendar) $db->delete('tl_calendar', ['id'=>$ownedCalendar]);
     if ($calendarId !== null) $db->delete('tl_calendar', ['id'=>$calendarId]);
     foreach ($users as $id) {
         $db->delete('tl_favorites', ['user'=>$id]);
@@ -250,7 +275,7 @@ try {
     }
     foreach ($groups as $id) $db->delete('tl_user_group', ['id'=>$id]);
     $db->executeStatement('DELETE FROM tl_log WHERE username LIKE ?', ['%'.$prefix.'%']);
-    $fs->remove([$state, $state.'.failure', $sessionDir, $config, $project.'/var/cache/backend_test']);
+    $fs->remove([$state, $state.'.failure', $sessionDir, $config, $routes, $project.'/var/cache/backend_test']);
     $kernel->shutdown();
 }
 

@@ -5,6 +5,7 @@
     "license": "LGPL-3.0-or-later",
     "require": {
         "php": "^8.4",
+        "ext-intl": "*",
         "ext-json": "*",
         "contao/core-bundle": "^5.7 || ^6.0",
         "contao/calendar-bundle": "^5.7 || ^6.0",
@@ -15,6 +16,7 @@
         "symfony/http-client": "^7.4 || ^8.0",
         "symfony/http-client-contracts": "^3.5",
         "symfony/http-kernel": "^7.4 || ^8.0",
+        "symfony/translation-contracts": "^3.5",
         "doctrine/dbal": "^4.3",
         "psr/log": "^3.0"
     },

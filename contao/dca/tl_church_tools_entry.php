@@ -24,7 +24,7 @@ $GLOBALS['TL_DCA']['tl_church_tools_entry'] = [
     'list' => [
         'sorting' => ['mode' => DataContainer::MODE_SORTED, 'fields' => ['sourceStart'], 'flag' => DataContainer::SORT_ASC, 'defaultSearchField' => 'title', 'panelLayout' => 'filter;search,limit'],
         'label' => ['fields' => ['title', 'sourceStart'], 'format' => '%s (%s)'],
-        'operations' => ['show' => ['href' => 'act=show', 'icon' => 'show.svg']],
+        'operations' => ['link' => ['icon' => 'edit.svg'], 'show' => ['href' => 'act=show', 'icon' => 'show.svg']],
     ],
     'fields' => [
         'id' => ['sql' => ['type' => 'integer', 'unsigned' => true, 'autoincrement' => true]],
@@ -50,6 +50,6 @@ $GLOBALS['TL_DCA']['tl_church_tools_entry'] = [
         'endDate' => ['sql' => ['type' => 'date', 'notnull' => false]],
         'tags' => ['sql' => ['type' => 'blob', 'length' => 16777215]],
         // Logical reference only: missing targets remain recorded. No SQL foreign key.
-        'contaoEventId' => ['sql' => ['type' => 'integer', 'unsigned' => true, 'notnull' => false]],
+        'contaoEventId' => ['exclude' => true, 'sql' => ['type' => 'integer', 'unsigned' => true, 'notnull' => false]],
     ],
 ];

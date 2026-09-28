@@ -1,0 +1,30 @@
+{% extends '@Contao/content_element/_base.html.twig' %}
+
+{% block content %}
+  {% if groups is empty %}
+    <p class="text-body-secondary">{{ emptyLabel }}</p>
+  {% else %}
+    <div class="vstack gap-4 church-tools-list">
+      {% for group in groups %}
+        <section>
+          <h3 class="h5 border-bottom pb-2">{{ group.date }}</h3>
+          <ul class="list-unstyled vstack gap-3 mb-0">
+            {% for item in group.items %}
+              <li>
+                <div class="d-flex flex-column flex-sm-row gap-1 gap-sm-3">
+                  <span class="text-body-secondary flex-shrink-0">{{ item.when }}</span>
+                  <div class="text-break">
+                    {% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}<span>{{ item.title }}</span>{% endif %}
+                    {% if item.description %}
+                      <div class="small mt-1">{% if item.descriptionIsHtml %}{{ item.description|sanitize_html('contao') }}{% else %}{{ item.description|e|nl2br }}{% endif %}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

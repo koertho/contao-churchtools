@@ -30,7 +30,7 @@ final class StorageAcceptance
         $entryDca = $GLOBALS['TL_DCA']['tl_church_tools_entry'];
         $check($archiveDca['config']['ctable'] === ['tl_church_tools_entry'] && $entryDca['config']['ptable'] === 'tl_church_tools_archive', 'Parent/child DCA');
         $check($archiveDca['list']['operations']['entries']['href'] === 'table=tl_church_tools_entry', 'Child navigation');
-        $check($entryDca['config']['notEditable'] && $entryDca['config']['closed'] && array_keys($entryDca['list']['operations']) === ['show'], 'Read-only entry DCA');
+        $check($entryDca['config']['notEditable'] && $entryDca['config']['closed'] && array_keys($entryDca['list']['operations']) === ['link', 'show'], 'Read-only entry DCA');
         foreach ($entryDca['fields'] as $field) {
             $check(!isset($field['inputType']), 'No source field widget');
         }

@@ -32,7 +32,7 @@ return [
     'tl_church_tools_entry.tags.0' => 'Tags',
     'tl_church_tools_entry.tags.1' => '',
     'tl_church_tools_entry.contaoEventId.0' => 'Contao event ID',
-    'tl_church_tools_entry.contaoEventId.1' => '',
+    'tl_church_tools_entry.contaoEventId.1' => 'Manage the local link: link, unlink and explicitly create a target. Source fields remain read-only.',
     'tl_church_tools_entry.pid.0' => 'Archive',
     'tl_church_tools_entry.pid.1' => '',
 ];

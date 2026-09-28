@@ -59,6 +59,10 @@ final class ChurchToolsBundle extends AbstractBundle
         $services->set(SyncCommand::class);
         $services->set(SyncListener::class);
         $services->load('Koertho\\ChurchToolsBundle\\Backend\\', __DIR__.'/Backend/');
+        $services->load('Koertho\\ChurchToolsBundle\\EventIntegration\\', __DIR__.'/EventIntegration/');
+        $services->load('Koertho\\ChurchToolsBundle\\Controller\\', __DIR__.'/Controller/')->tag('controller.service_arguments');
+        $services->load('Koertho\\ChurchToolsBundle\\Frontend\\', __DIR__.'/Frontend/');
+        $services->load('Koertho\\ChurchToolsBundle\\EventListener\\Frontend\\', __DIR__.'/EventListener/Frontend/');
         $services->load('Koertho\\ChurchToolsBundle\\EventListener\\DataContainer\\', __DIR__.'/EventListener/DataContainer/');
     }
 }

@@ -10,6 +10,7 @@ if (!in_array($target, ['5.7.*', '6.0.*'], true) || !str_starts_with($directory,
 }
 @mkdir($directory.'/config', 0700, true);
 @mkdir($directory.'/public', 0700, true);
+@mkdir($directory.'/system/tmp', 0700, true);
 $package = dirname(__DIR__);
 file_put_contents($directory.'/composer.json', json_encode([
     'name' => 'koertho/churchtools-matrix', 'type' => 'project', 'license' => 'proprietary',

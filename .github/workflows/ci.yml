@@ -55,3 +55,5 @@ jobs:
         run: php tools/backend-schema.php "$RUNNER_TEMP/churchtools-matrix" --apply
       - name: Authenticated backend, permissions and API outage acceptance
         run: php tools/backend-test.php "$RUNNER_TEMP/churchtools-matrix"
+      - name: Event action concurrency and rollback acceptance
+        run: php tools/event-test.php "$RUNNER_TEMP/churchtools-matrix"

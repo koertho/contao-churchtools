@@ -1,0 +1,16 @@
+{% extends '@Contao/be_main.html.twig' %}
+{% block main_headline %}<div class="content-top"><h1 id="main_headline">{{ 'actions'|trans({}, 'church_tools_backend') }}</h1></div>{% endblock %}
+{% block main_content %}
+<a href="{{ back }}">{{ 'back'|trans({}, 'church_tools_backend') }}</a>
+
+<h2>{{ entry.title }}</h2>
+{% if actionError %}<p class="tl_error" role="alert">{{ actionError|trans({}, 'church_tools_backend') }}</p>{% endif %}
+{% if entry.contaoEventId is not null %}
+<p>{{ 'linked_id'|trans({'%id%': entry.contaoEventId}, 'church_tools_backend') }}</p>
+{% if open %}<p><a href="{{ open }}">{{ 'open_target'|trans({}, 'church_tools_backend') }}</a></p>{% endif %}
+<form method="post" class="tl_form"><div class="tl_formbody_edit"><input type="hidden" name="REQUEST_TOKEN" value="{{ token }}"><button class="tl_submit" name="action" value="unlink">{{ 'unlink'|trans({}, 'church_tools_backend') }}</button></div></form>
+{% else %}
+<form method="post" class="tl_form"><div class="tl_formbody_edit"><input type="hidden" name="REQUEST_TOKEN" value="{{ token }}"><label>{{ 'select_target'|trans({}, 'church_tools_backend') }} <select class="tl_select" name="target" required>{% for event in events %}<option value="{{ event.id }}">{{ event.title }} (ID {{ event.id }})</option>{% endfor %}</select></label><button class="tl_submit" name="action" value="link">{{ 'link'|trans({}, 'church_tools_backend') }}</button></div></form>
+<form method="post" class="tl_form"><div class="tl_formbody_edit"><input type="hidden" name="REQUEST_TOKEN" value="{{ token }}"><label>{{ 'select_calendar'|trans({}, 'church_tools_backend') }} <select class="tl_select" name="target" required>{% for calendar in calendars %}<option value="{{ calendar.id }}">{{ calendar.title }}</option>{% endfor %}</select></label><button class="tl_submit" name="action" value="create">{{ 'create_target'|trans({}, 'church_tools_backend') }}</button></div></form>
+{% endif %}
+{% endblock %}

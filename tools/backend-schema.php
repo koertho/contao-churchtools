@@ -20,7 +20,7 @@ $schema = $c->get('contao.doctrine.schema_provider')->createSchema();
 $manager = $db->createSchemaManager();
 $names = $manager->listTableNames();
 // Narrow allowlist, only missing core tables. No alters, drops, migrations or host schema.
-foreach (['tl_user','tl_user_group','tl_log','tl_favorites','tl_undo','tl_version','tl_message','tl_files','tl_page','tl_trusted_device','tl_module','tl_job'] as $name) {
+foreach (['tl_user','tl_user_group','tl_log','tl_favorites','tl_undo','tl_version','tl_message','tl_files','tl_page','tl_trusted_device','tl_module','tl_job','tl_content','tl_article','tl_member','tl_member_group','tl_image_size','tl_form','tl_theme','tl_layout','tl_search','tl_search_term'] as $name) {
     if (in_array($name, $names, true)) {
         echo $name." already exists; unchanged.\n";
         continue;

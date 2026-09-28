@@ -1,0 +1,35 @@
+{% extends '@Contao/content_element/_base.html.twig' %}
+
+{% block content %}
+  <div id="{{ elementId }}" class="church-tools-calendar">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+      {% if calendar.previous %}<a class="btn btn-outline-primary btn-sm" href="{{ calendar.previous }}#{{ elementId }}" aria-label="{{ calendar.previousLabel }}" rel="prev">‹ <span class="d-none d-sm-inline">{{ calendar.previousLabel }}</span></a>{% else %}<span></span>{% endif %}
+      <h3 class="h5 mb-0 text-center">{{ calendar.heading }}</h3>
+      {% if calendar.next %}<a class="btn btn-outline-primary btn-sm" href="{{ calendar.next }}#{{ elementId }}" aria-label="{{ calendar.nextLabel }}" rel="next"><span class="d-none d-sm-inline">{{ calendar.nextLabel }}</span> ›</a>{% else %}<span></span>{% endif %}
+    </div>
+    {% if not calendar.hasItems %}<p class="text-body-secondary">{{ emptyLabel }}</p>{% endif %}
+    <div class="row g-0 d-none d-md-flex" aria-hidden="true">
+      {% for weekday in calendar.weekdays %}<div class="col text-center fw-semibold border-bottom p-2">{{ weekday }}</div>{% endfor %}
+    </div>
+    {% for week in calendar.weeks %}
+      <div class="row g-0">
+        {% for day in week %}
+          {% if day %}
+            <div class="col-12 col-md border p-2 overflow-hidden{% if not day.items %} d-none d-md-block{% endif %}">
+              <div class="fw-semibold mb-1"><time class="d-md-none" datetime="{{ day.iso }}">{{ day.date }}</time><time class="d-none d-md-inline" datetime="{{ day.iso }}" aria-label="{{ day.date }}">{{ day.number }}</time></div>
+              {% if day.items %}
+                <ul class="list-unstyled small mb-0 vstack gap-2">
+                  {% for item in day.items %}
+                    <li><span class="d-block text-body-secondary">{{ item.when }}</span>{% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="col-md border d-none d-md-block" aria-hidden="true"></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

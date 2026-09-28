@@ -32,7 +32,7 @@ return [
     'tl_church_tools_entry.tags.0' => 'Tags',
     'tl_church_tools_entry.tags.1' => '',
     'tl_church_tools_entry.contaoEventId.0' => 'Contao-Termin-ID',
-    'tl_church_tools_entry.contaoEventId.1' => '',
+    'tl_church_tools_entry.contaoEventId.1' => 'Lokale Verknüpfung verwalten: verknüpfen, lösen und ausdrücklich einen Zieltermin erstellen. Quelldaten bleiben schreibgeschützt.',
     'tl_church_tools_entry.pid.0' => 'Archiv',
     'tl_church_tools_entry.pid.1' => '',
 ];

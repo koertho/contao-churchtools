@@ -1,6 +1,6 @@
 # Implementation steps
 
-Step 1 retains residual checks. Step 2 is implemented and locally validated; hosted CI remains unverified. Step 3 has passed local storage acceptance on both targets; step 4 has passed local synchronization acceptance; step 5 has passed local authenticated backend acceptance; steps 6–8 are pending. This document tracks implementation evidence, not only code completion.
+Step 1 retains residual checks. Steps 2–7 are implemented and locally validated in the isolated matrices; hosted CI, host integration and live browser acceptance remain unverified. Step 8 remains open. This document tracks implementation evidence, not only code completion.
 
 | Step | Deliverable | Status |
 | --- | --- | --- |
@@ -9,8 +9,8 @@ Step 1 retains residual checks. Step 2 is implemented and locally validated; hos
 | 3 | Archives and storage | Local acceptance passed on 5.7/6; hosted CI unverified |
 | 4 | Synchronization and cleanup | Local acceptance passed on 5.7/6; API/cache limits documented |
 | 5 | Backend module | Local authenticated HTTP acceptance passed on 5.7/6; visual browser/hosted CI unverified |
-| 6 | Contao event linking and creation | Pending |
-| 7 | Content elements | Pending |
+| 6 | Contao event linking and creation | Local acceptance passed on 5.7/6; independent review and repeated matrix acceptance passed |
+| 7 | Content elements | Implemented; local HTTP and responsive snapshot checks passed on 5.7.13/6.0.0; live browser acceptance open |
 | 8 | Compatibility validation and documentation | Pending |
 
 ## Step 1 — Verify API access and occurrence semantics
@@ -100,34 +100,36 @@ Validation: [Step 5 record](step-5-validation.md). Both targets pass real login,
 
 Depends on step 5.
 
-- [ ] Add link, unlink and open-target actions for a single occurrence.
-- [ ] Create an unpublished Contao event in an authorized selected calendar.
-- [ ] Map date fields and full time timestamps explicitly; do not rely on DCA `adjustTime()` running on model save. Test inclusive all-day ends, single/multi-day timed cases and DST without adding an extra day.
-- [ ] Escape source plaintext and safely convert line breaks when copying to rich text; test literal HTML/Markdown input and keep the separate link field independent.
-- [ ] Prevent duplicate creation from repeated submissions.
-- [ ] Resolve effective title/date/visibility/link information in PHP before date filtering, sorting and grouping, using batch-loaded Contao targets.
-- [ ] Override source information only with a published, currently visitor-visible target. Otherwise show ChurchTools data without a Contao link; verify creating an unpublished target leaves the appointment visible.
-- [ ] Keep missing target IDs unchanged. Verify delete/restore under the same ID, publication/access transitions and explicit unlinking.
-- [ ] Load all retained entries in selected archives before period filtering. Test a source date three weeks ahead overridden to tomorrow, and the reverse.
-- [ ] Verify that source deletion preserves the target and sync cannot overwrite it.
-- [ ] Verify exactly one entry per ChurchTools occurrence: linked core recurrence rules and project repeating-event extensions must not add entries.
+- [x] Add link, unlink and open-target actions for a single occurrence.
+- [x] Create an unpublished Contao event in an authorized selected calendar.
+- [x] Map date fields and full time timestamps explicitly; do not rely on DCA `adjustTime()` running on model save. Test inclusive all-day ends, single/multi-day timed cases and DST without adding an extra day.
+- [x] Escape source plaintext and safely convert line breaks when copying to rich text; test literal HTML/Markdown input and keep the separate link field independent.
+- [x] Prevent duplicate creation from repeated submissions.
+- [x] Resolve effective title/date/visibility/link information in PHP before date filtering, sorting and grouping, using batch-loaded Contao targets.
+- [x] Override source information only with a published, currently visitor-visible target. Otherwise show ChurchTools data without a Contao link; verify creating an unpublished target leaves the appointment visible.
+- [x] Keep missing target IDs unchanged. Verify delete/restore under the same ID, publication/access transitions and explicit unlinking.
+- [x] Load all retained entries in selected archives before period filtering. Test a source date three weeks ahead overridden to tomorrow, and the reverse.
+- [x] Verify that source deletion preserves the target and sync cannot overwrite it.
+- [x] Verify exactly one entry per ChurchTools occurrence: linked core recurrence rules and project repeating-event extensions must not add entries.
 
 Acceptance: authenticated backend actions and tests verify independent editing, effective dates, publication/access rules and cleanup behaviour.
+
+Validation: [Step 6 record](step-6-validation.md). Both targets pass authenticated backend/frontend HTTP, actual core reader/publication, date mapping, concurrency/rollback and the preserved regression suites. Independent review and repeated matrix acceptance passed; visual/browser and hosted acceptance are not claimed.
 
 ## Step 7 — Build and verify frontend views
 
 Depends on steps 4 and 6.
 
-- [ ] Add exactly two archive-selectable content elements: appointment list and month calendar, with overridable Twig templates. Output only ChurchTools appointments; do not include independent Contao events or additional Contao-calendar selectors.
-- [ ] Leave existing core modules, pages and importer content untouched. Images and migration/cutover are outside version one.
-- [ ] Implement the configurable list period, proposed default seven days, grouped by day.
-- [ ] Implement the month grid and previous/next navigation as the only frontend filter.
-- [ ] Render effective times/titles and optional Contao links consistently.
-- [ ] Deduplicate by remote occurrence identity: prefer published, visitor-visible Contao targets, then lowest archive ID; without a qualifying target use source data once from the lowest archive ID. Apply date filtering after choosing the winner. Test mixed publication/access states and differing dates/links. Handle all-day/multi-day cases and empty states.
-- [ ] Apply Bootstrap 5.3/project styling and verify mobile output.
-- [ ] Verify cache updates after sync, linking, Contao event edits/deletion/restoration and publication-window transitions; prevent visitor-specific target visibility from leaking through shared caches.
+- [x] Add exactly two archive-selectable content elements: appointment list and month calendar, with overridable Twig templates. Output only ChurchTools appointments; do not include independent Contao events or additional Contao-calendar selectors.
+- [x] Leave existing core modules, pages and importer content untouched. Images and migration/cutover are outside version one.
+- [x] Implement the configurable list period, default seven days, grouped by local day.
+- [x] Implement the Monday-first month grid and previous/next navigation as the only frontend filter. Bound links by the selected archives' resolved effective months plus the current-month anchor; clamp valid out-of-range requests and retain the current-month fallback for invalid values.
+- [x] Render effective times/titles and optional Contao links consistently; source URL is not rendered.
+- [x] Reuse the resolver's UID winner and visibility decisions before period filtering. Test duplicates, mixed access/publication, moved effective dates, all-day/point/multi-day cases and empty states.
+- [x] Apply Bootstrap 5.3-compatible classes and inspect desktop/mobile screenshots of the isolated HTTP output. Live page browser acceptance remains open.
+- [x] Disable shared and client caching for pages containing these elements; verify actual repeated full-page HTTP responses after member switches, source/link and core edit/delete/restore/publication changes. External proxy behavior remains untested.
 
-Acceptance: browser verification against the live list/calendar references, including month transitions, effective-date sorting and restricted/unpublished targets. Record actual desktop/mobile checks; markup inspection alone is not visual acceptance.
+Validation: [Step 7 record](step-7-validation.md). The live reference pages were reviewed for structure; no production cutover or browser acceptance of a deployed Contao page is claimed.
 
 ## Step 8 — Complete compatibility and operational documentation
 

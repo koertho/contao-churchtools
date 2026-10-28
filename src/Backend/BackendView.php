@@ -42,6 +42,38 @@ final class BackendView
         return $this->translator->trans($exists ? 'linked' : 'missingTarget', ['%id%' => $id], 'church_tools_backend');
     }
 
+    public function sourceDate(string $value, bool $allDay): string
+    {
+        $timezone = new \DateTimeZone(date_default_timezone_get());
+        $date = (new \DateTimeImmutable($value, $timezone))->setTimezone($timezone);
+
+        return Date::parse(Config::get($allDay ? 'dateFormat' : 'datimFormat'), $date->getTimestamp());
+    }
+
+    public function sourceDateRange(array $row): string
+    {
+        $timezone = new \DateTimeZone(date_default_timezone_get());
+        $start = (new \DateTimeImmutable($row['sourceStart'], $timezone))->setTimezone($timezone);
+        $end = (new \DateTimeImmutable($row['sourceEnd'], $timezone))->setTimezone($timezone);
+        $allDay = (bool) $row['allDay'];
+        $separator = $GLOBALS['TL_LANG']['MSC']['cal_timeSeparator'] ?? ' – ';
+
+        if ($start->format('Y-m-d') !== $end->format('Y-m-d')) {
+            $format = Config::get($allDay ? 'dateFormat' : 'datimFormat');
+
+            return Date::parse($format, $start->getTimestamp()).$separator.Date::parse($format, $end->getTimestamp());
+        }
+
+        $date = Date::parse(Config::get('dateFormat'), $start->getTimestamp());
+        if ($allDay) {
+            return $date;
+        }
+
+        $date .= ' '.Date::parse(Config::get('timeFormat'), $start->getTimestamp());
+
+        return $start == $end ? $date : $date.$separator.Date::parse(Config::get('timeFormat'), $end->getTimestamp());
+    }
+
     public function details(array $row): array
     {
         $data = [];
@@ -50,6 +82,8 @@ final class BackendView
             $value = $row[$field] ?? '';
             if ($field === 'allDay') {
                 $value = $this->translator->trans($value ? 'yes' : 'no', [], 'church_tools_backend');
+            } elseif ($field === 'sourceStart' || $field === 'sourceEnd') {
+                $value = $this->sourceDate((string) $value, (bool) $row['allDay']);
             }
             $data[htmlspecialchars((string) ($label), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')] = new \Twig\Markup(nl2br(htmlspecialchars((string) ($value), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')), 'UTF-8');
         }

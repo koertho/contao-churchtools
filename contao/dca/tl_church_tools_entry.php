@@ -22,9 +22,10 @@ $GLOBALS['TL_DCA']['tl_church_tools_entry'] = [
         ]],
     ],
     'list' => [
+        // ISO source dates sort by year and month; the group callback renders the month heading.
         'sorting' => ['mode' => DataContainer::MODE_SORTED, 'fields' => ['sourceStart'], 'flag' => DataContainer::SORT_ASC, 'defaultSearchField' => 'title', 'panelLayout' => 'filter;search,limit'],
         'label' => ['fields' => ['title', 'sourceStart'], 'format' => '%s (%s)'],
-        'operations' => ['link' => ['icon' => 'edit.svg'], 'show' => ['href' => 'act=show', 'icon' => 'show.svg']],
+        'operations' => ['link' => ['icon' => 'bundles/churchtools/icons/calendar.svg'], 'show' => ['href' => 'act=show', 'icon' => 'show.svg']],
     ],
     'fields' => [
         'id' => ['sql' => ['type' => 'integer', 'unsigned' => true, 'autoincrement' => true]],

@@ -1,16 +1,80 @@
 {% extends '@Contao/be_main.html.twig' %}
-{% block main_headline %}<div class="content-top"><h1 id="main_headline">{{ 'actions'|trans({}, 'church_tools_backend') }}</h1></div>{% endblock %}
-{% block main_content %}
-<a href="{{ back }}">{{ 'back'|trans({}, 'church_tools_backend') }}</a>
 
-<h2>{{ entry.title }}</h2>
-{% if actionError %}<p class="tl_error" role="alert">{{ actionError|trans({}, 'church_tools_backend') }}</p>{% endif %}
-{% if entry.contaoEventId is not null %}
-<p>{{ 'linked_id'|trans({'%id%': entry.contaoEventId}, 'church_tools_backend') }}</p>
-{% if open %}<p><a href="{{ open }}">{{ 'open_target'|trans({}, 'church_tools_backend') }}</a></p>{% endif %}
-<form method="post" class="tl_form"><div class="tl_formbody_edit"><input type="hidden" name="REQUEST_TOKEN" value="{{ token }}"><button class="tl_submit" name="action" value="unlink">{{ 'unlink'|trans({}, 'church_tools_backend') }}</button></div></form>
-{% else %}
-<form method="post" class="tl_form"><div class="tl_formbody_edit"><input type="hidden" name="REQUEST_TOKEN" value="{{ token }}"><label>{{ 'select_target'|trans({}, 'church_tools_backend') }} <select class="tl_select" name="target" required>{% for event in events %}<option value="{{ event.id }}">{{ event.title }} (ID {{ event.id }})</option>{% endfor %}</select></label><button class="tl_submit" name="action" value="link">{{ 'link'|trans({}, 'church_tools_backend') }}</button></div></form>
-<form method="post" class="tl_form"><div class="tl_formbody_edit"><input type="hidden" name="REQUEST_TOKEN" value="{{ token }}"><label>{{ 'select_calendar'|trans({}, 'church_tools_backend') }} <select class="tl_select" name="target" required>{% for calendar in calendars %}<option value="{{ calendar.id }}">{{ calendar.title }}</option>{% endfor %}</select></label><button class="tl_submit" name="action" value="create">{{ 'create_target'|trans({}, 'church_tools_backend') }}</button></div></form>
-{% endif %}
+{% block main_headline %}
+    <div class="content-top">
+        <h1 id="main_headline">{{ 'actions'|trans({}, 'church_tools_backend') }}</h1>
+        {{ include('@Contao/backend/component/_favorites.html.twig') }}
+    </div>
+{% endblock %}
+
+{% block main_content %}
+    <div id="tl_buttons">
+        <a href="{{ back }}" class="header_back" accesskey="b">{{ 'back'|trans({}, 'church_tools_backend') }}</a>
+    </div>
+
+    {% if actionError %}
+        <p class="tl_error" role="alert">{{ actionError|trans({}, 'church_tools_backend') }}</p>
+    {% endif %}
+
+    {% if entry.contaoEventId is not null %}
+        <section class="maintenance_inactive">
+            <h2 class="sub_headline">{{ entry.title }}</h2>
+            <form method="post" class="tl_form">
+                <div class="tl_formbody_edit">
+                    <input type="hidden" name="REQUEST_TOKEN" value="{{ token }}">
+                    <div class="tl_tbox">
+                        <p>{{ 'linked_id'|trans({'%id%': entry.contaoEventId}, 'church_tools_backend') }}</p>
+                        {% if open %}<p><a href="{{ open }}">{{ 'open_target'|trans({}, 'church_tools_backend') }}</a></p>{% endif %}
+                    </div>
+                </div>
+                <div class="tl_submit_container">
+                    <button type="submit" class="tl_submit" name="action" value="unlink">{{ 'unlink'|trans({}, 'church_tools_backend') }}</button>
+                </div>
+            </form>
+        </section>
+    {% else %}
+        <section class="maintenance_inactive">
+            <h2 class="sub_headline">{{ entry.title }}</h2>
+            <form method="post" class="tl_form">
+                <div class="tl_formbody_edit">
+                    <input type="hidden" name="REQUEST_TOKEN" value="{{ token }}">
+                    <fieldset class="tl_tbox">
+                        <div class="widget w50 wizard">
+                            <h3><label for="ctrl_target">{{ 'select_target'|trans({}, 'church_tools_backend') }}</label></h3>
+                            <input type="text" id="ctrl_target" name="target" class="tl_text" inputmode="numeric" pattern="[1-9][0-9]*" required>
+                            {% if pickerUrl %}
+                                <a href="{{ pickerUrl }}" id="pp_target" class="picker-wizard" data-controller="contao--modal-selector" data-contao--modal-selector-title-value="{{ 'select_target'|trans({}, 'church_tools_backend') }}" data-action="contao--modal-selector#dcapicker">{{ backend_icon('pickpage.svg', 'select_target'|trans({}, 'church_tools_backend')) }}</a>
+                            {% endif %}
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="tl_submit_container">
+                    <button type="submit" class="tl_submit" name="action" value="link">{{ 'link'|trans({}, 'church_tools_backend') }}</button>
+                </div>
+            </form>
+        </section>
+
+        {% if calendars is not empty %}
+            <section class="maintenance_inactive">
+                <h2 class="sub_headline">{{ 'create_target'|trans({}, 'church_tools_backend') }}</h2>
+                <form method="post" class="tl_form">
+                    <div class="tl_formbody_edit">
+                        <input type="hidden" name="REQUEST_TOKEN" value="{{ token }}">
+                        <fieldset class="tl_tbox">
+                            <div class="widget w50">
+                                <h3><label for="ctrl_calendar">{{ 'select_calendar'|trans({}, 'church_tools_backend') }}</label></h3>
+                                <select id="ctrl_calendar" class="tl_select" name="target" required>
+                                    <option value="">{{ 'choose_calendar'|trans({}, 'church_tools_backend') }}</option>
+                                    {% for calendar in calendars %}<option value="{{ calendar.id }}">{{ calendar.title }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        </fieldset>
+                    </div>
+                    <div class="tl_submit_container">
+                        <button type="submit" class="tl_submit" name="action" value="create">{{ 'create_button'|trans({}, 'church_tools_backend') }}</button>
+                    </div>
+                </form>
+            </section>
+        {% endif %}
+    {% endif %}
 {% endblock %}

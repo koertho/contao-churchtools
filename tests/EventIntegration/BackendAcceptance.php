@@ -49,7 +49,8 @@ $db->insert('tl_calendar_events', ['pid'=>$foreignCalendar,'title'=>$prefix.'For
 $foreignEvent = (int)$db->lastInsertId();
 $login('editor');
 $r = $request($actionPath);
-$check($r[0] === 200 && str_contains($r[1], $prefix.'Target'), 'Local link permission plus authorized calendar permits selection');
+$check($r[0] === 200 && str_contains($r[1], 'id="pp_target"') && str_contains($r[1], 'eventPicker') && str_contains($r[1], 'contao--modal-selector#dcapicker'), 'Local link permission exposes native Contao event picker');
+$check(!str_contains($r[1], $prefix.'Target'), 'Action form does not render the complete Contao event list');
 $check(!str_contains($r[1], $prefix.'Forbidden'), 'Foreign calendar/event titles absent from selection');
 $check($request($actionPath, ['action'=>'link','target'=>$foreignEvent])[0] === 403, 'Forged target ID rejected');
 $check($request($actionPath, ['action'=>'create','target'=>$foreignCalendar])[0] === 403, 'Forged calendar ID rejected');

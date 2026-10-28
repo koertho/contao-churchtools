@@ -17,7 +17,7 @@ final class ListLabelLabelListener
 
     public function __invoke(array $row): string|RecordLabel
     {
-        $html = htmlspecialchars((string) ($row['title']), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').' <span class="tl_gray">'.htmlspecialchars((string) ($row['sourceStart'].' – '.$row['sourceEnd'].' | '.$row['calendarName'].' (ID '.$row['sourceCalendarId'].') | '.$this->view->linkedState($row)), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</span>';
+        $html = htmlspecialchars((string) ($row['title']), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').' <span class="tl_gray">'.htmlspecialchars($this->view->sourceDateRange($row).' | '.$row['calendarName'].' (ID '.$row['sourceCalendarId'].') | '.$this->view->linkedState($row), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</span>';
 
         // Contao 6 treats plain callback strings as text; 5.7 expects HTML.
         return class_exists(RecordLabel::class) ? RecordLabel::fromHtml($html) : $html;

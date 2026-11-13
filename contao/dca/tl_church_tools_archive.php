@@ -30,7 +30,7 @@ $GLOBALS['TL_DCA']['tl_church_tools_archive'] = [
             'search' => true,
             'exclude' => true,
             'inputType' => 'text',
-            'eval' => ['mandatory' => true, 'maxlength' => 255],
+            'eval' => ['mandatory' => true, 'maxlength' => 255, 'decodeEntities' => true],
             'sql' => ['type' => 'string', 'length' => 255, 'default' => ''],
         ],
         'syncStatus' => ['exclude' => false, 'eval' => ['doNotSave' => true]],

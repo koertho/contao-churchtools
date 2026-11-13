@@ -26,10 +26,11 @@ final class AppointmentListController extends AbstractContentElementController
         $pageRequest = $this->requests->getMainRequest() ?? $request;
         $pageRequest->attributes->set('church_tools_dynamic_content', true);
         $days = max(1, min(366, (int) ($model->churchToolsDays ?: 7)));
-        $from = new \DateTimeImmutable('today', new \DateTimeZone(date_default_timezone_get()));
+        $now = new \DateTimeImmutable('now', new \DateTimeZone(date_default_timezone_get()));
+        $from = $now->setTime(0, 0);
         $until = $from->modify('+'.$days.' days')->modify('-1 microsecond');
         $ids = StringUtil::deserialize($model->churchToolsArchives, true);
-        $rows = $this->resolver->resolve(is_array($ids) ? $ids : [], $from, $until);
+        $rows = $this->resolver->resolve(is_array($ids) ? $ids : [], $now, $until);
         $template->set('groups', $this->views->listGroups($rows, $from, $pageRequest->getLocale()));
         $template->set('emptyLabel', $this->views->label('empty', $pageRequest->getLocale()));
         $response = $template->getResponse();

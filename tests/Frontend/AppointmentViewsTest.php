@@ -113,6 +113,42 @@ final class AppointmentViewsTest extends TestCase
         self::assertNull($offsetEdge['next']);
     }
 
+    public function testCalendarMarksTodayWithoutAppointmentsInTheCalendarTimezone(): void
+    {
+        $originalZone = date_default_timezone_get();
+        date_default_timezone_set('UTC');
+        try {
+            foreach (['Europe/Berlin', 'Pacific/Kiritimati', 'Etc/GMT+12'] as $timezone) {
+                $today = new \DateTimeImmutable('today', new \DateTimeZone($timezone));
+                $month = $today->modify('first day of this month');
+                $calendar = $this->views()->calendar([], $month, $month, 'de', Request::create('/appointments'), 'month');
+                $days = array_values(array_filter(array_merge(...$calendar['weeks'])));
+                $marked = [];
+                foreach ($days as $day) {
+                    self::assertArrayHasKey('isToday', $day);
+                    self::assertIsBool($day['isToday']);
+                    if ($day['isToday']) $marked[] = $day;
+                }
+                self::assertCount(1, $marked, $timezone);
+                self::assertSame($today->format('Y-m-d'), $marked[0]['iso'], $timezone);
+                self::assertSame([], $marked[0]['items']);
+            }
+        } finally {
+            date_default_timezone_set($originalZone);
+        }
+    }
+
+    public function testCalendarDoesNotMarkTodayInAnotherMonth(): void
+    {
+        $today = new \DateTimeImmutable('today', new \DateTimeZone('Europe/Berlin'));
+        $month = $today->modify('first day of this month')->modify('-1 month');
+        $calendar = $this->views()->calendar([], $month, $month, 'de', Request::create('/appointments'), 'month');
+        foreach (array_filter(array_merge(...$calendar['weeks'])) as $day) {
+            self::assertArrayHasKey('isToday', $day);
+            self::assertFalse($day['isToday']);
+        }
+    }
+
     public function testOnlySafeDetailUrlsAreReturned(): void
     {
         $from = new \DateTimeImmutable('2026-09-25', new \DateTimeZone('Europe/Berlin'));

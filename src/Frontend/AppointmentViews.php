@@ -48,10 +48,12 @@ final class AppointmentViews
         $month = $requestedMonth < $firstMonth ? $firstMonth : ($requestedMonth > $lastMonth ? $lastMonth : $requestedMonth);
         $next = $month->modify('+1 month');
         $rows = array_values(array_filter($rows, static fn (array $row): bool => $row['start'] < $next && $row['end'] >= $month));
+        $today = (new \DateTimeImmutable('today', $zone))->format('Y-m-d');
         $days = [];
         for ($day = $month; $day < $next; $day = $day->modify('+1 day')) {
             $days[$day->format('Y-m-d')] = [
                 'iso' => $day->format('Y-m-d'),
+                'isToday' => $day->format('Y-m-d') === $today,
                 'number' => (int) $day->format('j'),
                 'date' => $this->localized($day, $locale, \IntlDateFormatter::FULL, \IntlDateFormatter::NONE),
                 'items' => [],

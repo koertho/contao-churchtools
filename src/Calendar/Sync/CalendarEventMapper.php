@@ -27,7 +27,7 @@ final class CalendarEventMapper
         }
         $fields = [
             'title' => $title,
-            'addTime' => $source['allDay'] ? '' : '1',
+            'addTime' => $source['allDay'] ? '0' : '1',
             'startDate' => $start->setTime(0, 0)->getTimestamp(),
             'endDate' => $end->setTime(0, 0)->getTimestamp(),
             'startTime' => $start->getTimestamp(),
@@ -35,7 +35,7 @@ final class CalendarEventMapper
             'location' => $source['location'] ?? '',
             'address' => $source['address'] ?? '',
             'source' => 'default',
-            'recurring' => '',
+            'recurring' => '0',
             'ct_sync_key' => hash('sha256', $source['occurrenceUid']),
             'ct_calendar_id' => $source['sourceCalendarId'],
             'ct_appointment_id' => $source['sourceAppointmentId'],

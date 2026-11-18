@@ -46,7 +46,7 @@ final class SynchronizerTest extends TestCase
         $this->db = DriverManager::getConnection($params);
         foreach ([
             'CREATE TEMPORARY TABLE tl_calendar (id INT UNSIGNED PRIMARY KEY, ct_calendar_id INT UNSIGNED NULL, ct_last_sync INT NULL, ct_sync_error TEXT NULL, ct_sync_counts TEXT NULL, jumpTo INT NOT NULL DEFAULT 0)',
-            "CREATE TEMPORARY TABLE tl_calendar_events (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,tstamp INT NOT NULL DEFAULT 0,title VARCHAR(255) NOT NULL DEFAULT '',alias VARCHAR(255) NOT NULL DEFAULT '',published CHAR(1) NOT NULL DEFAULT '',source VARCHAR(12) NOT NULL DEFAULT '',recurring CHAR(1) NOT NULL DEFAULT '',addTime CHAR(1) NOT NULL DEFAULT '',startDate BIGINT NOT NULL DEFAULT 0,endDate BIGINT NOT NULL DEFAULT 0,startTime BIGINT NOT NULL DEFAULT 0,endTime BIGINT NOT NULL DEFAULT 0,location TEXT NULL,address TEXT NULL,teaser TEXT NULL,ct_sync_key VARCHAR(64) NULL,ct_calendar_id INT NULL,ct_appointment_id INT NULL,ct_series_template_id INT NULL,ct_hash VARCHAR(64) NULL,ct_description TEXT NULL,ct_last_sync INT NULL,ct_unpublished_by_sync CHAR(1) NOT NULL DEFAULT '',UNIQUE KEY sync_key(pid,ct_sync_key))",
+            "CREATE TEMPORARY TABLE tl_calendar_events (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,tstamp INT NOT NULL DEFAULT 0,title VARCHAR(255) NOT NULL DEFAULT '',alias VARCHAR(255) NOT NULL DEFAULT '',published TINYINT NOT NULL DEFAULT 0,source VARCHAR(12) NOT NULL DEFAULT '',recurring TINYINT NOT NULL DEFAULT 0,addTime TINYINT NOT NULL DEFAULT 0,startDate BIGINT NOT NULL DEFAULT 0,endDate BIGINT NOT NULL DEFAULT 0,startTime BIGINT NOT NULL DEFAULT 0,endTime BIGINT NOT NULL DEFAULT 0,location TEXT NULL,address TEXT NULL,teaser TEXT NULL,ct_sync_key VARCHAR(64) NULL,ct_calendar_id INT NULL,ct_appointment_id INT NULL,ct_series_template_id INT NULL,ct_hash VARCHAR(64) NULL,ct_description TEXT NULL,ct_last_sync INT NULL,ct_unpublished_by_sync CHAR(1) NOT NULL DEFAULT '',UNIQUE KEY sync_key(pid,ct_sync_key))",
             "CREATE TEMPORARY TABLE tl_ct_series_templates (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,tstamp INT NOT NULL DEFAULT 0,ct_appointment_id INT UNSIGNED UNIQUE,title VARCHAR(255) NOT NULL DEFAULT '',teaser TEXT NULL)",
             "CREATE TEMPORARY TABLE tl_content (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,ptable VARCHAR(64) NOT NULL DEFAULT '')",
         ] as $sql) {
@@ -141,13 +141,13 @@ final class SynchronizerTest extends TestCase
     public function testManualHideSurvivesChangesAndSyncHideReactivatesUnchanged(): void
     {
         $this->runSync();
-        $this->db->update('tl_calendar_events', ['published' => '', 'ct_unpublished_by_sync' => ''], ['id' => $this->event()['id']]);
+        $this->db->update('tl_calendar_events', ['published' => 0, 'ct_unpublished_by_sync' => ''], ['id' => $this->event()['id']]);
         $this->remote->rows[0]['appointment']['base']['title'] = 'Changed';
         $this->runSync();
-        self::assertSame('', $this->event()['published']);
+        self::assertSame(0, (int) $this->event()['published']);
         $this->db->update('tl_calendar_events', ['ct_unpublished_by_sync' => '1'], ['id' => $this->event()['id']]);
         $this->runSync();
-        self::assertSame('1', $this->event()['published']);
+        self::assertSame(1, (int) $this->event()['published']);
         self::assertSame('', $this->event()['ct_unpublished_by_sync']);
     }
 
@@ -186,7 +186,7 @@ final class SynchronizerTest extends TestCase
         $this->db->insert('tl_calendar_events', ['pid' => 1, 'published' => '1']);
         $this->remote->rows = [RemoteFixture::row('replacement')];
         $this->runSync();
-        self::assertSame('', $this->event()['published']);
+        self::assertSame(0, (int) $this->event()['published']);
         self::assertSame('1', $this->event()['ct_unpublished_by_sync']);
         self::assertSame(3, (int) $this->db->fetchOne("SELECT COUNT(*) FROM tl_calendar_events WHERE published='1'"));
     }
@@ -194,16 +194,16 @@ final class SynchronizerTest extends TestCase
     public function testAllDayAtUpperBoundaryIsRetainedAsOutsideWindow(): void
     {
         $this->runSync();
-        $this->db->insert('tl_calendar_events', ['pid' => 1, 'published' => '1', 'ct_sync_key' => str_repeat('b', 64), 'startTime' => strtotime('2027-03-17 00:00:00'), 'endTime' => strtotime('2027-03-17 23:59:59'), 'addTime' => '']);
+        $this->db->insert('tl_calendar_events', ['pid' => 1, 'published' => '1', 'ct_sync_key' => str_repeat('b', 64), 'startTime' => strtotime('2027-03-17 00:00:00'), 'endTime' => strtotime('2027-03-17 23:59:59'), 'addTime' => 0]);
         $this->runSync();
-        self::assertSame('1', $this->db->fetchOne('SELECT published FROM tl_calendar_events WHERE ct_sync_key=?', [str_repeat('b', 64)]));
+        self::assertSame(1, (int) $this->db->fetchOne('SELECT published FROM tl_calendar_events WHERE ct_sync_key=?', [str_repeat('b', 64)]));
     }
 
     public function testCommittedCacheErrorKeepsImportedDataAndSuccessTime(): void
     {
         $this->cacheFailure = true;
         self::assertSame('committed_cache_error', $this->runSync()['status']);
-        self::assertSame('1', $this->event()['published']);
+        self::assertSame(1, (int) $this->event()['published']);
         self::assertGreaterThan(0, (int) $this->db->fetchOne('SELECT ct_last_sync FROM tl_calendar WHERE id=1'));
     }
 
@@ -216,7 +216,7 @@ final class SynchronizerTest extends TestCase
         $this->remote->rows[0]['appointment']['calculated']['iCalUid'] = 'new-series-uid';
         $this->remote->rows[0]['appointment']['base']['id'] = 815;
         $this->runSync();
-        self::assertSame('', $this->event()['published']);
+        self::assertSame(0, (int) $this->event()['published']);
         self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM tl_calendar_events'));
         self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM tl_ct_series_templates'));
         self::assertSame($first['id'], $this->db->fetchOne('SELECT pid FROM tl_content'));
@@ -249,7 +249,7 @@ final class SynchronizerTest extends TestCase
         $requests = $this->remote->requests;
         $this->runSync();
         self::assertSame($requests, $this->remote->requests);
-        self::assertSame('', $this->event()['published']);
+        self::assertSame(0, (int) $this->event()['published']);
         self::assertSame(1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM tl_calendar_events'));
     }
 }

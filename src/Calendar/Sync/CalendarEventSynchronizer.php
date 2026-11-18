@@ -139,7 +139,7 @@ final class CalendarEventSynchronizer
                     continue;
                 }
                 $eventId = (int) $event['id'];
-                $db->update('tl_calendar_events', ['published' => '', 'ct_unpublished_by_sync' => '1', 'tstamp' => $now], ['id' => $eventId]);
+                $db->update('tl_calendar_events', ['published' => '0', 'ct_unpublished_by_sync' => '1', 'tstamp' => $now], ['id' => $eventId]);
                 ++$counts['unpublished'];
                 $tags[] = 'contao.db.tl_calendar_events.'.$eventId;
                 if ($db->fetchOne("SELECT id FROM tl_content WHERE pid=? AND ptable='tl_calendar_events' LIMIT 1", [$eventId])) {

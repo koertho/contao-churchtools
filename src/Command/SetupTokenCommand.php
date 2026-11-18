@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\Command;
+namespace Koertho\ContaoChurchTools\Command;
 
-use Koertho\ChurchToolsBundle\Api\ApiException;
-use Koertho\ChurchToolsBundle\Setup\TokenSetup;
+use Koertho\ContaoChurchTools\Api\ApiException;
+use Koertho\ContaoChurchTools\Setup\TokenSetup;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

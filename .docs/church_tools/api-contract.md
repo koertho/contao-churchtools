@@ -1,5 +1,7 @@
 # API contract investigation
 
+> **Calendar V2 (2026-11-18):** The historical two-table/linking decisions below describe the superseded prototype. The recorded API observations and UID fixtures remain evidence; current persistence, publication and series inheritance follow the [V2 contract](../../docs/superpowers/plans/2026-11-17-calendar-v2.md) and [current README](../../README.md).
+
 ## Consolidated implementation contract — 2026-09-16
 
 **Identity limitation confirmed:** the controlled series split regenerated all five UIDs, including the unchanged preceding occurrence. UID matching preserves links only while the UID survives. Automatic association continuity across series splitting is not established; the user has explicitly accepted link loss and manual reassignment for this operation. See the series-split result below.

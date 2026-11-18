@@ -25,16 +25,16 @@
     },
     "autoload": {
         "psr-4": {
-            "Koertho\\ChurchToolsBundle\\": "src/"
+            "Koertho\\ContaoChurchTools\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Koertho\\ChurchToolsBundle\\Tests\\": "tests/"
+            "Koertho\\ContaoChurchTools\\Tests\\": "tests/"
         }
     },
     "extra": {
-        "contao-manager-plugin": "Koertho\\ChurchToolsBundle\\ContaoManager\\Plugin"
+        "contao-manager-plugin": "Koertho\\ContaoChurchTools\\ContaoManager\\Plugin"
     },
     "config": {
         "allow-plugins": {

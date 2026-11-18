@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle;
+namespace Koertho\ContaoChurchTools;
 
-use Koertho\ChurchToolsBundle\Api\ChurchToolsClient;
-use Koertho\ChurchToolsBundle\Api\Transport;
-use Koertho\ChurchToolsBundle\Command\SetupTokenCommand;
-use Koertho\ChurchToolsBundle\Command\SyncCommand;
-use Koertho\ChurchToolsBundle\EventListener\Cron\SyncListener;
-use Koertho\ChurchToolsBundle\Sync\SnapshotFetcher;
-use Koertho\ChurchToolsBundle\Sync\Synchronizer;
-use Koertho\ChurchToolsBundle\Setup\TokenSetup;
+use Koertho\ContaoChurchTools\Api\ChurchToolsClient;
+use Koertho\ContaoChurchTools\Api\Transport;
+use Koertho\ContaoChurchTools\Command\SetupTokenCommand;
+use Koertho\ContaoChurchTools\Calendar\Command\SyncCalendarEventsCommand;
+use Koertho\ContaoChurchTools\EventListener\Cron\SyncListener;
+use Koertho\ContaoChurchTools\Calendar\Sync\SnapshotFetcher;
+use Koertho\ContaoChurchTools\Calendar\Sync\CalendarEventSynchronizer;
+use Koertho\ContaoChurchTools\Setup\TokenSetup;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -52,17 +52,17 @@ final class ChurchToolsBundle extends AbstractBundle
         $services->set(ChurchToolsClient::class)->args([service(Transport::class), $config['token']]);
         $services->set(TokenSetup::class)->args([service(Transport::class), $config['setup']['username'], $config['setup']['password']]);
         $services->set(SetupTokenCommand::class);
-        $services->set(SnapshotFetcher::class);
-        $services->set(Synchronizer::class)
+        $services->load('Koertho\\ContaoChurchTools\\Calendar\\Sync\\', __DIR__.'/Calendar/Sync/')->exclude([__DIR__.'/Calendar/Sync/EventFields.php', __DIR__.'/Calendar/Sync/SourceOccurrence.php', __DIR__.'/Calendar/Sync/SyncWindow.php']);
+        $services->set(CalendarEventSynchronizer::class)
+            ->arg('$slug', service('contao.slug'))
             ->arg('$pastMonths', $config['sync']['past_months'])
             ->arg('$futureMonths', $config['sync']['future_months']);
-        $services->set(SyncCommand::class);
+        $services->set(SyncCalendarEventsCommand::class);
         $services->set(SyncListener::class);
-        $services->load('Koertho\\ChurchToolsBundle\\Backend\\', __DIR__.'/Backend/');
-        $services->load('Koertho\\ChurchToolsBundle\\EventIntegration\\', __DIR__.'/EventIntegration/');
-        $services->load('Koertho\\ChurchToolsBundle\\Controller\\', __DIR__.'/Controller/')->tag('controller.service_arguments');
-        $services->load('Koertho\\ChurchToolsBundle\\Frontend\\', __DIR__.'/Frontend/');
-        $services->load('Koertho\\ChurchToolsBundle\\EventListener\\Frontend\\', __DIR__.'/EventListener/Frontend/');
-        $services->load('Koertho\\ChurchToolsBundle\\EventListener\\DataContainer\\', __DIR__.'/EventListener/DataContainer/');
+        $services->load('Koertho\\ContaoChurchTools\\Calendar\\Backend\\', __DIR__.'/Calendar/Backend/');
+        $services->load('Koertho\\ContaoChurchTools\\Calendar\\Security\\', __DIR__.'/Calendar/Security/');
+        $services->load('Koertho\\ContaoChurchTools\\Calendar\\Frontend\\', __DIR__.'/Calendar/Frontend/');
+        $services->load('Koertho\\ContaoChurchTools\\EventListener\\Frontend\\', __DIR__.'/EventListener/Frontend/');
+        $services->load('Koertho\\ContaoChurchTools\\EventListener\\DataContainer\\', __DIR__.'/EventListener/DataContainer/');
     }
 }

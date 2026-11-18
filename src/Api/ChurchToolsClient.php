@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\Api;
+namespace Koertho\ContaoChurchTools\Api;
 
 final class ChurchToolsClient
 {

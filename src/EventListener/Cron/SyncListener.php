@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\EventListener\Cron;
+namespace Koertho\ContaoChurchTools\EventListener\Cron;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCronJob;
-use Koertho\ChurchToolsBundle\Sync\Synchronizer;
+use Koertho\ContaoChurchTools\Calendar\Sync\CalendarEventSynchronizer;
 use Psr\Log\LoggerInterface;
 
-#[AsCronJob('hourly')]
+#[AsCronJob('*/15 * * * *')]
 final class SyncListener
 {
-    public function __construct(private readonly Synchronizer $synchronizer, private readonly LoggerInterface $logger)
+    public function __construct(private readonly CalendarEventSynchronizer $synchronizer, private readonly LoggerInterface $logger)
     {
     }
 

@@ -6,3 +6,4 @@ AGENTS.local.md
 /vendor/
 /composer.lock
 /.phpunit.cache/
+/.superpowers/

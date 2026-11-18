@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\Tests;
+namespace Koertho\ContaoChurchTools\Tests;
 
-use Koertho\ChurchToolsBundle\ChurchToolsBundle;
+use Koertho\ContaoChurchTools\ChurchToolsBundle;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;

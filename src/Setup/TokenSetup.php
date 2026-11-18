@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\Setup;
+namespace Koertho\ContaoChurchTools\Setup;
 
-use Koertho\ChurchToolsBundle\Api\ApiException;
-use Koertho\ChurchToolsBundle\Api\Transport;
+use Koertho\ContaoChurchTools\Api\ApiException;
+use Koertho\ContaoChurchTools\Api\Transport;
 
 final class TokenSetup
 {

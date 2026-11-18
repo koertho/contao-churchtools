@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\Tests;
+namespace Koertho\ContaoChurchTools\Tests;
 
-use Koertho\ChurchToolsBundle\Api\ApiException;
-use Koertho\ChurchToolsBundle\Api\Transport;
-use Koertho\ChurchToolsBundle\Command\SetupTokenCommand;
-use Koertho\ChurchToolsBundle\Setup\TokenSetup;
+use Koertho\ContaoChurchTools\Api\ApiException;
+use Koertho\ContaoChurchTools\Api\Transport;
+use Koertho\ContaoChurchTools\Command\SetupTokenCommand;
+use Koertho\ContaoChurchTools\Setup\TokenSetup;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Console\Tester\CommandTester;

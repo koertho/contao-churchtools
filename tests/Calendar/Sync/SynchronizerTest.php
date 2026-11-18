@@ -15,6 +15,7 @@ use Koertho\ContaoChurchTools\Calendar\Sync\CalendarEventMapper;
 use Koertho\ContaoChurchTools\Calendar\Sync\CalendarEventSynchronizer;
 use Koertho\ContaoChurchTools\Calendar\Sync\SeriesTemplateManager;
 use Koertho\ContaoChurchTools\Calendar\Sync\SnapshotFetcher;
+use Koertho\ContaoChurchTools\Calendar\Image\CachedImageStoreInterface;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__.'/RemoteFixture.php';
@@ -30,6 +31,9 @@ final class SynchronizerTest extends TestCase
     private bool $cacheFailure = false;
     private bool $slugFailure = false;
     private array $warnings = [];
+    private array $imageCalls = [];
+    private bool $imageFailure = false;
+    private string $imageUuid = '1234567890123456';
 
     protected function setUp(): void
     {
@@ -46,7 +50,7 @@ final class SynchronizerTest extends TestCase
         $this->db = DriverManager::getConnection($params);
         foreach ([
             'CREATE TEMPORARY TABLE tl_calendar (id INT UNSIGNED PRIMARY KEY, ct_calendar_id INT UNSIGNED NULL, ct_last_sync INT NULL, ct_sync_error TEXT NULL, ct_sync_counts TEXT NULL, jumpTo INT NOT NULL DEFAULT 0)',
-            "CREATE TEMPORARY TABLE tl_calendar_events (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,tstamp INT NOT NULL DEFAULT 0,title VARCHAR(255) NOT NULL DEFAULT '',alias VARCHAR(255) NOT NULL DEFAULT '',published TINYINT NOT NULL DEFAULT 0,source VARCHAR(12) NOT NULL DEFAULT '',recurring TINYINT NOT NULL DEFAULT 0,addTime TINYINT NOT NULL DEFAULT 0,startDate BIGINT NOT NULL DEFAULT 0,endDate BIGINT NOT NULL DEFAULT 0,startTime BIGINT NOT NULL DEFAULT 0,endTime BIGINT NOT NULL DEFAULT 0,location TEXT NULL,address TEXT NULL,teaser TEXT NULL,ct_sync_key VARCHAR(64) NULL,ct_calendar_id INT NULL,ct_appointment_id INT NULL,ct_series_template_id INT NULL,ct_hash VARCHAR(64) NULL,ct_description TEXT NULL,ct_last_sync INT NULL,ct_unpublished_by_sync CHAR(1) NOT NULL DEFAULT '',UNIQUE KEY sync_key(pid,ct_sync_key))",
+            "CREATE TEMPORARY TABLE tl_calendar_events (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,tstamp INT NOT NULL DEFAULT 0,title VARCHAR(255) NOT NULL DEFAULT '',alias VARCHAR(255) NOT NULL DEFAULT '',published TINYINT NOT NULL DEFAULT 0,source VARCHAR(12) NOT NULL DEFAULT '',recurring TINYINT NOT NULL DEFAULT 0,addTime TINYINT NOT NULL DEFAULT 0,startDate BIGINT NOT NULL DEFAULT 0,endDate BIGINT NOT NULL DEFAULT 0,startTime BIGINT NOT NULL DEFAULT 0,endTime BIGINT NOT NULL DEFAULT 0,location TEXT NULL,address TEXT NULL,teaser TEXT NULL,ct_sync_key VARCHAR(64) NULL,ct_calendar_id INT NULL,ct_appointment_id INT NULL,ct_series_template_id INT NULL,ct_hash VARCHAR(64) NULL,ct_description TEXT NULL,ct_image_src BINARY(16) NULL,ct_image_key VARCHAR(64) NULL,ct_last_sync INT NULL,ct_unpublished_by_sync CHAR(1) NOT NULL DEFAULT '',UNIQUE KEY sync_key(pid,ct_sync_key))",
             "CREATE TEMPORARY TABLE tl_ct_series_templates (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,tstamp INT NOT NULL DEFAULT 0,ct_appointment_id INT UNSIGNED UNIQUE,title VARCHAR(255) NOT NULL DEFAULT '',teaser TEXT NULL)",
             "CREATE TEMPORARY TABLE tl_content (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,ptable VARCHAR(64) NOT NULL DEFAULT '')",
         ] as $sql) {
@@ -70,7 +74,13 @@ final class SynchronizerTest extends TestCase
             public function __construct(private readonly \Closure $capture) {}
             public function log($level, string|\Stringable $message, array $context = []): void { ($this->capture)($context); }
         };
-        $this->sync = new CalendarEventSynchronizer(new SnapshotFetcher($this->remote->client()), new CalendarEventMapper(), new SeriesTemplateManager($this->db), $this->db, $framework, $cache, $logger, $slug);
+        $images = $this->createStub(CachedImageStoreInterface::class);
+        $images->method('obtain')->willReturnCallback(function (array $image): string {
+            $this->imageCalls[] = $image;
+            if ($this->imageFailure) throw new \RuntimeException('private diagnostic');
+            return $this->imageUuid;
+        });
+        $this->sync = new CalendarEventSynchronizer(new SnapshotFetcher($this->remote->client()), new CalendarEventMapper(), new SeriesTemplateManager($this->db), $this->db, $framework, $cache, $logger, $slug, images: $images);
     }
 
     protected function tearDown(): void
@@ -87,6 +97,56 @@ final class SynchronizerTest extends TestCase
     private function event(): array
     {
         return $this->db->fetchAssociative('SELECT * FROM tl_calendar_events ORDER BY id LIMIT 1');
+    }
+
+    public function testImageChangesAndFailuresPreserveEditorialState(): void
+    {
+        $this->remote->rows[0]['appointment']['base']['image'] = ['id' => 7, 'imageUrl' => 'https://example.org/images/7/photo'];
+        self::assertSame('success', $this->runSync()['status']);
+        $first = $this->event();
+        self::assertSame($this->imageUuid, $first['ct_image_src']);
+        $this->db->update('tl_calendar_events', ['published' => 0, 'teaser' => 'Editorial', 'tstamp' => 42], ['id' => $first['id']]);
+        $this->invalidated = [];
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame([], $this->invalidated);
+        self::assertSame(42, (int) $this->event()['tstamp']);
+        $this->imageUuid = 'ABCDEFGHIJKLMNOP';
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame($this->imageUuid, $this->event()['ct_image_src'], 'A changed image under the same URL must be refreshed.');
+        self::assertContains('contao.db.tl_calendar_events.'.$first['id'], $this->invalidated);
+        $first = $this->event();
+        $this->invalidated = [];
+        $this->imageFailure = true;
+        $this->remote->rows[0]['appointment']['base']['title'] = 'Changed';
+        $this->remote->rows[0]['appointment']['base']['image']['imageUrl'] = 'https://example.org/images/7/replacement';
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame($first['ct_image_src'], $this->event()['ct_image_src']);
+        self::assertSame($first['ct_image_key'], $this->event()['ct_image_key']);
+        self::assertSame('Changed', $this->event()['title']);
+        self::assertSame('Editorial', $this->event()['teaser']);
+        self::assertSame(0, (int) $this->event()['published']);
+        $this->imageFailure = false;
+        $this->imageUuid = 'abcdefghijklmnop';
+        $this->invalidated = [];
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame($this->imageUuid, $this->event()['ct_image_src']);
+        self::assertContains('contao.db.tl_calendar_events.'.$first['id'], $this->invalidated);
+        $this->remote->rows[0]['appointment']['base']['image'] = null;
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertNull($this->event()['ct_image_src']);
+        self::assertNull($this->event()['ct_image_key']);
+    }
+
+    public function testSharedImageIsFetchedOncePerRun(): void
+    {
+        $first = RemoteFixture::row('first');
+        $first['appointment']['base']['image'] = ['id' => 7, 'imageUrl' => 'https://example.org/images/7/photo'];
+        $second = $first;
+        $second['appointment']['calculated']['iCalUid'] = 'second';
+        $this->remote->rows = [$first, $second];
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertCount(1, $this->imageCalls);
+        self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM tl_calendar_events WHERE ct_image_src IS NOT NULL'));
     }
 
     public function testUnsupportedOccurrenceReportsSafeIdentifiersWithoutExposingTitle(): void

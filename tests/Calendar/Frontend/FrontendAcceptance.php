@@ -158,6 +158,30 @@ final class FrontendAcceptance
             $check($xpath->query('//figure//a[img]')->item(0)?->getAttribute('href') === $xpath->query('//h2/a')->item(0)?->getAttribute('href'), 'inherited list image links to event reader');
             $check($xpath->query('//h2/a')->item(0)?->textContent === $literalTitle, 'actual list title remains literal without double encoding');
             $check(str_contains($xpath->query('//p[contains(@class,"location")]')->item(0)?->textContent ?? '', version_compare(\Contao\CoreBundle\ContaoCoreBundle::getVersion(), '6.0', '<') ? 'Room & <b>Hall</b> {{user::email}}' : 'Room & <b>Hall</b> {literal}'), 'actual list location remains literal without double encoding');
+            // ChurchTools image is used when both editorial image sources are missing.
+            $db->update('tl_ct_series_templates', ['addImage'=>0], ['id'=>$series]);
+            $db->update('tl_calendar_events', ['ct_image_src'=>$uuid, 'overwriteMeta'=>'1', 'alt'=>'Stale event alt', 'caption'=>'Stale event caption'], ['id'=>$event]);
+            Registry::getInstance()->reset();
+            $requests->pop();
+            $ctRequest = Request::create('https://example.org/calendar-v2-test-ct-image');
+            $ctRequest->attributes->set('_scope', 'frontend');
+            $ctRequest->attributes->set('_locale', 'en');
+            $ctRequest->attributes->set('pageModel', $GLOBALS['objPage']);
+            $requests->push($ctRequest);
+            $container->get('contao.routing.response_context_factory')->createContaoWebpageResponseContext($GLOBALS['objPage']);
+            $listHtml = $container->get('contao.insert_tag.parser')->replace($listModule->generate());
+            @$document->loadHTML($listHtml);
+            $xpath = new \DOMXPath($document);
+            $check($xpath->query('//img[@width="2"]')->length === 1, 'native list displays ChurchTools image with module dimensions');
+            $check(!str_contains($listHtml, 'Stale event alt') && !str_contains($listHtml, 'Series image alt'), 'ChurchTools list image does not inherit editorial metadata');
+            Input::setGet('auto_item', $prefix);
+            $ctReaderModule = new ModuleEventReader(new ModuleModel(['id'=>0, 'type'=>'eventreader', 'cal_calendar'=>serialize([$archive]), 'cal_template'=>'event_full_churchtools', 'imgSize'=>serialize([2,2,'crop'])]));
+            $ctReaderHtml = $container->get('contao.insert_tag.parser')->replace($ctReaderModule->generate());
+            @$document->loadHTML($ctReaderHtml);
+            $xpath = new \DOMXPath($document);
+            $check($xpath->query('//img')->length === 1, 'native reader displays ChurchTools image');
+            $check(!str_contains($ctReaderHtml, 'Stale event alt') && !str_contains($ctReaderHtml, 'Stale event caption'), 'ChurchTools reader image does not inherit editorial metadata');
+            Input::setGet('auto_item', null);
             // A valid individual image keeps native reader module image-size overrides.
             $db->update('tl_calendar_events', ['singleSRC'=>$uuid], ['id'=>$event]);
             Registry::getInstance()->reset();

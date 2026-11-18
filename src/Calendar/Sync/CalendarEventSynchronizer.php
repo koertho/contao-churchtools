@@ -10,6 +10,7 @@ use Contao\CoreBundle\Slug\Slug;
 use Contao\PageModel;
 use Doctrine\DBAL\Connection;
 use Koertho\ContaoChurchTools\Api\ApiException;
+use Koertho\ContaoChurchTools\Calendar\Image\CachedImageStoreInterface;
 use Psr\Log\LoggerInterface;
 
 final class CalendarEventSynchronizer
@@ -23,6 +24,7 @@ final class CalendarEventSynchronizer
         private readonly CacheTagManager $cacheTags,
         private readonly LoggerInterface $logger,
         private readonly Slug $slug,
+        private readonly CachedImageStoreInterface $images,
         private readonly int $pastMonths = 1,
         private readonly int $futureMonths = 6,
     ) {
@@ -64,6 +66,8 @@ final class CalendarEventSynchronizer
             $calendarId = $archive['ct_calendar_id'] === null ? null : (int) $archive['ct_calendar_id'];
             $snapshot = $this->fetcher->fetch($calendarId === null ? [] : [$calendarId], $window);
             $mapped = [];
+            $imageInputs = [];
+            $imageKeys = [];
             foreach ($snapshot as $item) {
                 if ($item['internal'] || $window->outside($item['fields']) !== null) {
                     continue;
@@ -74,6 +78,21 @@ final class CalendarEventSynchronizer
                     throw new ApiException(sprintf('Unsupported ChurchTools occurrence: calendar %d, appointment %d, UID SHA-256 %s. %s', $item['fields']['sourceCalendarId'], $item['fields']['sourceAppointmentId'], hash('sha256', $item['fields']['occurrenceUid']), $error->getMessage()));
                 }
                 $mapped[$fields['ct_sync_key']] = $fields;
+                $source = $item['fields'];
+                if ($source['sourceImageId'] !== null) {
+                    $imageKey = hash('sha256', $source['sourceImageId']."\n".$source['sourceImageUrl']);
+                    $imageKeys[$fields['ct_sync_key']] = $imageKey;
+                    $imageInputs[$imageKey] = ['id' => $source['sourceImageId'], 'url' => $source['sourceImageUrl']];
+                }
+            }
+            $images = [];
+            foreach ($imageInputs as $imageKey => $image) {
+                try {
+                    $images[$imageKey] = $this->images->obtain($image);
+                } catch (\Throwable) {
+                    // Neither the URL nor the upstream response belong in logs.
+                    $this->logger->warning('ChurchTools image import failed; the previous local image is retained and the next synchronization will retry.', ['archive' => $id, 'image' => $image['id']]);
+                }
             }
             if ((int) $db->fetchOne('SELECT GET_LOCK(?,5)', [$lock]) !== 1) {
                 return ['status' => 'locked'];
@@ -104,6 +123,11 @@ final class CalendarEventSynchronizer
                 unset($fields['_sourceTitle'], $fields['_localDate'], $fields['_repeatId']);
                 $fields['ct_series_template_id'] = $seriesId;
                 $fields['ct_last_sync'] = $now;
+                $imageKey = $imageKeys[$key] ?? null;
+                $imageFields = $imageKey === null ? ['ct_image_src' => null, 'ct_image_key' => null]
+                    : (isset($images[$imageKey]) ? ['ct_image_src' => $images[$imageKey], 'ct_image_key' => $imageKey] : []);
+                $imageChanged = $event !== null && $imageFields !== [] && (($event['ct_image_src'] ?? null) !== $imageFields['ct_image_src'] || ($event['ct_image_key'] ?? null) !== $imageFields['ct_image_key']);
+                $fields += $imageFields;
                 if ($event === null) {
                     $alias = $this->slug->generate($rawTitle.'-'.$localDate, (int) $archive['jumpTo'], static fn (string $alias): bool => (bool) $db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$alias]));
                     if ($alias === '' || strlen($alias) > 255) {
@@ -116,7 +140,7 @@ final class CalendarEventSynchronizer
                 } else {
                     $eventId = (int) $event['id'];
                     $reactivate = !in_array($event['published'], [true, 1, '1'], true) && $event['ct_unpublished_by_sync'] === '1';
-                    $changed = $event['ct_hash'] !== $fields['ct_hash'] || $previousSeries !== $seriesId;
+                    $changed = $event['ct_hash'] !== $fields['ct_hash'] || $previousSeries !== $seriesId || $imageChanged;
                     if ($changed || $reactivate) {
                         $update = $changed ? $fields : ['ct_last_sync' => $now];
                         $update['tstamp'] = $now;

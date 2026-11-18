@@ -11,6 +11,8 @@ use Koertho\ContaoChurchTools\Calendar\Command\SyncCalendarEventsCommand;
 use Koertho\ContaoChurchTools\EventListener\Cron\SyncListener;
 use Koertho\ContaoChurchTools\Calendar\Sync\SnapshotFetcher;
 use Koertho\ContaoChurchTools\Calendar\Sync\CalendarEventSynchronizer;
+use Koertho\ContaoChurchTools\Calendar\Image\CachedImageStore;
+use Koertho\ContaoChurchTools\Calendar\Image\CachedImageStoreInterface;
 use Koertho\ContaoChurchTools\Setup\TokenSetup;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -50,6 +52,8 @@ final class ChurchToolsBundle extends AbstractBundle
             ->factory([HttpClient::class, 'create']);
         $services->set(Transport::class)->args([service('church_tools.http_client'), $config['instance_url']]);
         $services->set(ChurchToolsClient::class)->args([service(Transport::class), $config['token']]);
+        $services->set(CachedImageStore::class)->args([service('church_tools.http_client'), $config['instance_url'], service('contao.framework'), '%kernel.project_dir%', '%contao.upload_path%', '%contao.web_dir%']);
+        $services->alias(CachedImageStoreInterface::class, CachedImageStore::class);
         $services->set(TokenSetup::class)->args([service(Transport::class), $config['setup']['username'], $config['setup']['password']]);
         $services->set(SetupTokenCommand::class);
         $services->load('Koertho\\ContaoChurchTools\\Calendar\\Sync\\', __DIR__.'/Calendar/Sync/')->exclude([__DIR__.'/Calendar/Sync/SourceOccurrence.php', __DIR__.'/Calendar/Sync/SyncWindow.php']);

@@ -14,6 +14,19 @@ require_once __DIR__.'/RemoteFixture.php';
 
 final class SnapshotTest extends TestCase
 {
+    public function testOnlyValidatedImageIdentityCrossesTheSourceBoundary(): void
+    {
+        $row = RemoteFixture::row();
+        $row['appointment']['base']['image'] = ['id' => 12, 'imageUrl' => 'https://example.org/images/12/abcdefghijklmnop', 'filename' => 'PRIVATE_SENTINEL'];
+        $fields = SourceOccurrence::fields($row);
+        self::assertSame(12, $fields['sourceImageId']);
+        self::assertSame('https://example.org/images/12/abcdefghijklmnop', $fields['sourceImageUrl']);
+        self::assertStringNotContainsString('PRIVATE_SENTINEL', json_encode($fields));
+        $row['appointment']['base']['image'] = ['id' => 12];
+        $this->expectException(\InvalidArgumentException::class);
+        SourceOccurrence::fields($row);
+    }
+
     public function testMonthClampingAndIntervals(): void
     {
         $window = SyncWindow::at(new \DateTimeImmutable('2026-08-31T12:00:00Z'), 6, 6);

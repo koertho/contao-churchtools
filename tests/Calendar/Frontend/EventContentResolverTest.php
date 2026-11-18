@@ -114,6 +114,35 @@ final class EventContentResolverTest extends TestCase
         }
     }
 
+    public function testChurchToolsImageIsLastFallbackAndDoesNotInheritEditorialSettings(): void
+    {
+        $image = tempnam(sys_get_temp_dir(), 'ct-image-');
+        try {
+            $this->files = ['ct-uuid' => basename($image), 'series-uuid' => basename($image), 'own-uuid' => basename($image)];
+            $this->series = ['id' => 7, 'addImage' => '1', 'singleSRC' => 'series-uuid'];
+            $resolver = $this->resolver();
+            $base = ['id' => 2, 'ct_sync_key' => 'key', 'ct_series_template_id' => 7, 'ct_image_src' => 'ct-uuid'];
+            self::assertSame('own-uuid', $resolver->resolve($base + ['addImage' => '1', 'singleSRC' => 'own-uuid'])['singleSRC']);
+            self::assertSame('series-uuid', $resolver->resolve($base)['singleSRC']);
+
+            $this->series = ['id' => 7, 'addImage' => '1', 'singleSRC' => 'missing', 'overwriteMeta' => '1', 'alt' => 'Series alt'];
+            $fallback = $this->resolver()->resolve($base + ['addImage' => '1', 'singleSRC' => 'missing', 'size' => '[640,480]', 'fullsize' => '1', 'alt' => 'Own alt']);
+            self::assertSame('ct-uuid', $fallback['singleSRC']);
+            self::assertSame('1', $fallback['addImage']);
+            self::assertSame('ct_image', $fallback['ct_image_owner_table']);
+            self::assertSame(2, $fallback['ct_image_owner_id']);
+            self::assertNull($fallback['size']);
+            self::assertSame('', $fallback['fullsize']);
+            self::assertSame('', $fallback['overwriteMeta']);
+            self::assertSame('', $fallback['alt']);
+
+            $missing = $this->resolver()->resolve(array_replace($base, ['ct_image_src' => 'missing']));
+            self::assertEmpty($missing['addImage']);
+        } finally {
+            unlink($image);
+        }
+    }
+
     public function testFollowingMainRequestDoesNotReuseSeriesContent(): void
     {
         $this->series = ['id' => 7, 'teaser' => ''];

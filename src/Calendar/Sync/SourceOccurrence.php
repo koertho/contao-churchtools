@@ -31,6 +31,10 @@ final class SourceOccurrence
         }
         $repeatId = $base['repeatId'] ?? null;
         $address = $base['address'] ?? [];
+        $image = $base['image'] ?? null;
+        if ($image !== null && (!is_array($image) || !is_int($image['id'] ?? null) || $image['id'] < 1 || !is_string($image['imageUrl'] ?? null) || strlen($image['imageUrl']) > 4096)) {
+            throw new \InvalidArgumentException('Invalid source image representation.');
+        }
         if (!is_int($repeatId) || !in_array($repeatId, [0, 1, 7, 31, 32, 365, 999], true) || !is_array($address)) {
             throw new \InvalidArgumentException('Unsupported recurrence or location representation.');
         }
@@ -99,6 +103,8 @@ final class SourceOccurrence
             'startDate' => $base['allDay'] ? $calculated['startDate'] : null,
             'endDate' => $base['allDay'] ? $calculated['endDate'] : null,
             'tags' => $encodedTags,
+            'sourceImageId' => $image['id'] ?? null,
+            'sourceImageUrl' => $image['imageUrl'] ?? null,
         ];
     }
 }

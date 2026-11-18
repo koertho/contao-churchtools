@@ -74,6 +74,8 @@ The bundled event templates escape CT fields before Contao processes insert tags
 
 V2 is a fresh architecture without automatic data migration. The former CT archive/entry tables, linking actions and custom CT frontend elements are no longer registered. Their database records are not automatically removed. Before updating an existing site, replace its old CT elements, configure native calendar archives and readers, and review both schema additions and any proposed removal of legacy tables. Keep a backup if retaining old editorial associations is needed.
 
+Public ChurchTools appointment images are downloaded without credentials and stored in the public Contao upload directory under `churchtools-import`. The event image takes precedence, followed by the series image and then the imported ChurchTools image. A failed download leaves the previous imported image in place and is retried on the next synchronization; removing the image in ChurchTools removes the fallback reference. Cached image files are not automatically deleted, since they may be shared or used elsewhere. Only publicly accessible images on the configured HTTPS ChurchTools origin are imported. The web process needs write access to the Contao upload directory.
+
 ## Development and verification
 
 Local PHP/Composer commands run through DDEV project `/home/dev/Kunden/privat/jzm-contao`. Tests use independent Composer projects and dedicated `churchtools_v2_*` databases, never the host schema or live source mutations.

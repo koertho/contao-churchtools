@@ -72,12 +72,16 @@ final class ChurchToolsCalendarExtension extends AbstractExtension
                 $dimensions = StringUtil::deserialize($override, true);
                 if (($dimensions[0] ?? 0) > 0 || ($dimensions[1] ?? 0) > 0 || is_numeric($dimensions[2] ?? null) || ($dimensions[2][0] ?? null) === '_') $size = $override;
             }
-            $class = $resolved['ct_image_owner_table'] === 'tl_ct_series_templates' ? CtSeriesTemplatesModel::class : CalendarEventsModel::class;
-            $owner = $this->framework->getAdapter($class)->findByPk($resolved['ct_image_owner_id']);
+            $metadata = null;
+            if ($resolved['ct_image_owner_table'] !== 'ct_image') {
+                $class = $resolved['ct_image_owner_table'] === 'tl_ct_series_templates' ? CtSeriesTemplatesModel::class : CalendarEventsModel::class;
+                $owner = $this->framework->getAdapter($class)->findByPk($resolved['ct_image_owner_id']);
+                $metadata = $owner?->getOverwriteMetadata();
+            }
             $figure = $this->studio->createFigureBuilder()
                 ->fromUuid($resolved['singleSRC'])
                 ->setSize($size)
-                ->setOverwriteMetadata($owner?->getOverwriteMetadata())
+                ->setOverwriteMetadata($metadata)
                 ->enableLightbox((bool) ($resolved['fullsize'] ?? false))
                 ->buildIfResourceExists();
             $template = (object) $context;

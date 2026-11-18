@@ -76,7 +76,17 @@ final class EventContentResolver implements ResetInterface
                 $event['ct_image_owner_table'] = 'tl_ct_series_templates';
                 $event['ct_image_owner_id'] = $seriesId;
             } else {
-                $event['addImage'] = '';
+                foreach (self::IMAGE_FIELDS as $field) {
+                    $event[$field] = match ($field) { 'singleSRC', 'size' => null, default => '' };
+                }
+                $event['addImage'] = '1';
+                $event['singleSRC'] = $event['ct_image_src'] ?? null;
+                if ($this->hasImage($event)) {
+                    $event['ct_image_owner_table'] = 'ct_image';
+                    $event['ct_image_owner_id'] = (int) $event['id'];
+                } else {
+                    $event['addImage'] = '';
+                }
             }
         } else {
             $event['ct_image_owner_table'] = 'tl_calendar_events';

@@ -38,9 +38,12 @@ final class CachedImageStoreTest extends TestCase
     public function testCopiesAndDeduplicatesPublicImageWithoutCredentials(): void
     {
         $requests = 0;
-        $http = new MockHttpClient(function ($method, $url, $options) use (&$requests) {
+        $queries = [];
+        $http = new MockHttpClient(function ($method, $url, $options) use (&$requests, &$queries) {
             ++$requests;
             self::assertSame('GET', $method);
+            parse_str(parse_url($url, PHP_URL_QUERY) ?? '', $query);
+            $queries[] = $query;
             self::assertSame(0, $options['max_redirects']);
             self::assertArrayNotHasKey('authorization', array_change_key_case($options['headers']));
             return new MockResponse($this->png, ['http_code' => 200, 'response_headers' => ['content-type: image/png']]);
@@ -50,6 +53,7 @@ final class CachedImageStoreTest extends TestCase
         self::assertSame(str_repeat('a', 16), $store->obtain($image));
         self::assertSame(str_repeat('a', 16), $store->obtain($image));
         self::assertSame(2, $requests);
+        self::assertSame(['w' => '1920', 'h' => '1920', 'fit' => 'max', 'q' => '90'], $queries[0]);
         self::assertFileExists($this->project.'/files/churchtools-import/.public');
         self::assertTrue(is_link($this->project.'/public/files/churchtools-import'));
         self::assertSame(realpath($this->project.'/files/churchtools-import'), realpath($this->project.'/public/files/churchtools-import'));
@@ -57,6 +61,47 @@ final class CachedImageStoreTest extends TestCase
         self::assertCount(1, $files);
         self::assertSame($this->png, file_get_contents($files[0]));
         self::assertSame(0644, fileperms($files[0]) & 0777);
+    }
+
+    public function testConfigurablePathUsesEventDateAndAlias(): void
+    {
+        $http = new MockHttpClient(new MockResponse($this->png, ['http_code' => 200, 'response_headers' => ['content-type: image/png']]));
+        $store = $this->store($http, 'images/{year}/{month}/{day}/{alias}');
+        $store->obtain(['id' => 42, 'url' => 'https://ct.example/images/42/abcdefgh12345678', 'date' => '2026-03-09', 'alias' => 'abend-gottesdienst']);
+        self::assertCount(1, glob($this->project.'/files/images/2026/03/09/abend-gottesdienst/*.png'));
+        self::assertFileExists($this->project.'/files/images/.public');
+        self::assertTrue(is_link($this->project.'/public/files/images'));
+    }
+
+    public function testConfiguredPathRejectsSymlinkedNestedDirectory(): void
+    {
+        mkdir($this->project.'/files/images', 0755);
+        touch($this->project.'/files/images/.ct-managed');
+        touch($this->project.'/files/images/.public');
+        symlink(sys_get_temp_dir(), $this->project.'/files/images/2026');
+        $http = new MockHttpClient(new MockResponse($this->png, ['http_code' => 200, 'response_headers' => ['content-type: image/png']]));
+        $this->expectException(ImageImportException::class);
+        $this->store($http, 'images/{year}')->obtain(['id' => 42, 'url' => 'https://ct.example/images/42/abcdefgh12345678', 'date' => '2026-03-09', 'alias' => 'event']);
+    }
+
+    public function testUsesAnExistingPublicContaoDirectoryWithoutChangingItsContents(): void
+    {
+        mkdir($this->project.'/files/images', 0755);
+        touch($this->project.'/files/images/.public');
+        file_put_contents($this->project.'/files/images/editor.txt', 'keep');
+        $http = new MockHttpClient(new MockResponse($this->png, ['http_code' => 200, 'response_headers' => ['content-type: image/png']]));
+        $this->store($http, 'images/events/{year}')->obtain(['id' => 42, 'url' => 'https://ct.example/images/42/abcdefgh12345678', 'date' => '2026-03-09', 'alias' => 'event']);
+        self::assertCount(1, glob($this->project.'/files/images/events/2026/*.png'));
+        self::assertSame('keep', file_get_contents($this->project.'/files/images/editor.txt'));
+        self::assertFileDoesNotExist($this->project.'/files/images/.ct-managed');
+    }
+
+    public function testAliasCannotEscapeTheConfiguredDirectory(): void
+    {
+        $http = new MockHttpClient(new MockResponse($this->png, ['http_code' => 200, 'response_headers' => ['content-type: image/png']]));
+        $this->store($http, 'images/{alias}')->obtain(['id' => 42, 'url' => 'https://ct.example/images/42/abcdefgh12345678', 'date' => '2026-03-09', 'alias' => '../../outside']);
+        self::assertCount(1, glob($this->project.'/files/images/outside/*.png'));
+        self::assertDirectoryDoesNotExist($this->project.'/outside');
     }
 
     #[DataProvider('invalidUrls')]
@@ -150,12 +195,12 @@ final class CachedImageStoreTest extends TestCase
         $this->store($http)->obtain(['id' => 42, 'url' => 'https://ct.example/images/42/abcdefgh12345678']);
     }
 
-    private function store(MockHttpClient $http): CachedImageStore
+    private function store(MockHttpClient $http, string $path = 'churchtools-import'): CachedImageStore
     {
         $adapter = $this->createStub(Adapter::class);
         $adapter->method('__call')->willReturnCallback(static fn ($method, $args) => (object) ['uuid' => str_repeat('a', 16)]);
         $framework = $this->createStub(ContaoFramework::class);
         $framework->method('getAdapter')->willReturn($adapter);
-        return new CachedImageStore($http, 'https://ct.example', $framework, $this->project, 'files', $this->project.'/public');
+        return new CachedImageStore($http, 'https://ct.example', $framework, $this->project, 'files', $this->project.'/public', $path);
     }
 }

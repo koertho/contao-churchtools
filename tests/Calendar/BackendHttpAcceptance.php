@@ -14,7 +14,7 @@ final class BackendHttpAcceptance
         $edit = '/contao?do=calendar&table=tl_calendar_events&act=edit&id='.$event;
         $base = '/contao?do=calendar&table=tl_calendar_events&id='.$event;
         $before = $db->fetchAssociative('SELECT * FROM tl_calendar_events WHERE id=?', [$event]);
-        $sourceFields = ['title','pid','addTime','startDate','endDate','startTime','endTime','source','recurring','location','address','ct_sync_key','ct_appointment_id','ct_calendar_id','ct_series_template_id','ct_hash','ct_description'];
+        $sourceFields = ['title','pid','addTime','startDate','endDate','startTime','endTime','source','recurring','location','address','ct_sync_key','ct_appointment_id','ct_calendar_id','ct_series_template_id','ct_hash','ct_description','ct_image_src'];
         $assertSource = static function (string $label) use ($db, $event, $before, $sourceFields, $check): void {
             $after = $db->fetchAssociative('SELECT * FROM tl_calendar_events WHERE id=?', [$event]);
             foreach ($sourceFields as $field) $check((string) $after[$field] === (string) $before[$field], $label.' preserved '.$field);
@@ -28,6 +28,9 @@ final class BackendHttpAcceptance
         $document = new \DOMDocument();
         @$document->loadHTML($form[1]);
         $xpath = new \DOMXPath($document);
+        $check($xpath->query('//*[contains(concat(" ",normalize-space(@class)," ")," ct-source-image ")]//img')->length === 1, 'Imported ChurchTools image preview is visible');
+        $check($xpath->query('//*[contains(concat(" ",normalize-space(@class)," ")," ct-source-image ") and contains(concat(" ",normalize-space(@class)," ")," ct-source-locked ")]')->length === 1, 'Imported image is visibly marked as locked');
+        $check($xpath->query('//*[@name="ct_image_src"]')->length === 0, 'Imported image has no editable control');
         $locked = 'ancestor::*[contains(concat(" ",normalize-space(@class)," ")," ct-source-locked ")]';
         $check($xpath->query('//input[@name="title"]/'.$locked)->length > 0, 'Title belongs to a visually locked field');
         $check($xpath->query('//textarea[@name="teaser"]/'.$locked)->length === 0, 'Editorial teaser is not visually locked');
@@ -74,6 +77,7 @@ final class BackendHttpAcceptance
         $forged['startDate'] = str_replace('2026', '2027', (string) $forged['startDate']);
         $forged['ct_sync_key'] = 'forged';
         $forged['ct_series_template_id'] = 0;
+        $forged['ct_image_src'] = 'forged';
         $forged['save'] = '1';
         $forgedResult = $request($edit, $forged);
         $check(in_array($forgedResult[0], [200, 302, 303, 403, 422], true), 'Forged source POST safely handled HTTP '.$forgedResult[0]);
@@ -87,11 +91,17 @@ final class BackendHttpAcceptance
         $check((int) $db->fetchOne('SELECT COUNT(*) FROM tl_content WHERE pid=? AND ptable=?', [$series, 'tl_ct_series_templates']) === 1, 'Shared editorial content survives attempted destructive actions');
         $assertSource('Destructive actions');
 
+        $db->update('tl_calendar_events', ['ct_image_src' => null], ['id' => $event]);
+        $withoutImage = $request($edit);
+        $check($withoutImage[0] === 200 && str_contains($withoutImage[1], 'No ChurchTools image available.'), 'Imported event without an image has a clear empty state');
+        $db->update('tl_calendar_events', ['ct_image_src' => $before['ct_image_src']], ['id' => $event]);
+
         $db->insert('tl_calendar_events', ['pid' => $calendar, 'title' => 'Manual event', 'tstamp' => time()]);
         $manualId = (int) $db->lastInsertId();
         $manual = $request('/contao?do=calendar&table=tl_calendar_events&act=edit&id='.$manualId);
         $check($manual[0] === 200 && !str_contains($manual[1], 'ct-source-locked'), 'Manual events in the same archive have no lock markers');
         $check(!str_contains($manual[1], 'maintained in ChurchTools'), 'Manual events do not show the imported-event notice');
+        $check(!str_contains($manual[1], 'ct-source-image'), 'Manual events do not show the ChurchTools image field');
     }
 
     /** Collect exactly the successful controls a browser submits, including readonly fields. */

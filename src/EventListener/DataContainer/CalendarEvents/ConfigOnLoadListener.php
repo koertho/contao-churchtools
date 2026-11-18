@@ -40,7 +40,7 @@ final class ConfigOnLoadListener
         }
         $GLOBALS['TL_DCA']['tl_calendar_events']['fields']['published']['eval']['versionize'] = false;
         foreach (['default', 'internal', 'article', 'external'] as $palette) {
-            $GLOBALS['TL_DCA']['tl_calendar_events']['palettes'][$palette] = str_replace('location,address,teaser', 'location,address,ct_description,teaser', $GLOBALS['TL_DCA']['tl_calendar_events']['palettes'][$palette]);
+            $GLOBALS['TL_DCA']['tl_calendar_events']['palettes'][$palette] = str_replace('location,address,teaser', 'location,address,ct_description,ct_image_src,teaser', $GLOBALS['TL_DCA']['tl_calendar_events']['palettes'][$palette]);
         }
         if ((int) ($row['ct_series_template_id'] ?? 0) > 0) {
             $url = $this->router->generate('contao_backend', ['do' => 'ct_series', 'table' => 'tl_content', 'id' => $row['ct_series_template_id']]);

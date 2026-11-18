@@ -80,7 +80,7 @@ final class SynchronizerTest extends TestCase
             if ($this->imageFailure) throw new \RuntimeException('private diagnostic');
             return $this->imageUuid;
         });
-        $this->sync = new CalendarEventSynchronizer(new SnapshotFetcher($this->remote->client()), new CalendarEventMapper(), new SeriesTemplateManager($this->db), $this->db, $framework, $cache, $logger, $slug, images: $images);
+        $this->sync = new CalendarEventSynchronizer(new SnapshotFetcher($this->remote->client()), new CalendarEventMapper(), new SeriesTemplateManager($this->db), $this->db, $framework, $cache, $logger, $slug, images: $images, imagePath: 'churchtools-import/{year}/{month}/{day}/{alias}');
     }
 
     protected function tearDown(): void
@@ -147,6 +147,25 @@ final class SynchronizerTest extends TestCase
         self::assertSame('success', $this->runSync()['status']);
         self::assertCount(1, $this->imageCalls);
         self::assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM tl_calendar_events WHERE ct_image_src IS NOT NULL'));
+    }
+
+    public function testImageContextUsesLocalStartDateAndStoredAlias(): void
+    {
+        $this->remote->rows[0]['appointment']['base']['image'] = ['id' => 7, 'imageUrl' => 'https://example.org/images/7/photo'];
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame('2026-09-20', $this->imageCalls[0]['date']);
+        self::assertSame($this->event()['alias'], $this->imageCalls[0]['alias']);
+        $this->db->update('tl_calendar_events', ['alias' => 'editor-alias'], ['id' => $this->event()['id']]);
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame('editor-alias', $this->imageCalls[1]['alias']);
+    }
+
+    public function testImageContextUsesLocalDateAfterTimezoneConversion(): void
+    {
+        $this->remote->rows[0] = RemoteFixture::row('local-midnight', '2026-09-20T22:30:00Z', '2026-09-20T23:30:00Z');
+        $this->remote->rows[0]['appointment']['base']['image'] = ['id' => 7, 'imageUrl' => 'https://example.org/images/7/photo'];
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame('2026-09-21', $this->imageCalls[0]['date']);
     }
 
     public function testUnsupportedOccurrenceReportsSafeIdentifiersWithoutExposingTitle(): void

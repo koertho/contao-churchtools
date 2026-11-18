@@ -57,6 +57,8 @@ $fs->mkdir($sessionDirectory, 0700);
 file_put_contents($config, "imports:\n  - { resource: config.yaml }\ncontao:\n  localconfig: { timeZone: Europe/Berlin }\n  cron: { web_listener: false }\n  messenger:\n    web_worker: { transports: [] }\n  search:\n    listener: { index: false, delete: false }\nframework:\n  session:\n    save_path: '$sessionDirectory'\n");
 $fs->remove($project.'/var/cache/backend_http');
 $process = null;
+$imageUuid = null;
+$imageDirectory = $project.'/files/'.$prefix;
 $users = $calendars = $series = [];
 $count = 0;
 $check = static function (bool $condition, string $message) use (&$count, $diagnostic): void {
@@ -64,6 +66,10 @@ $check = static function (bool $condition, string $message) use (&$count, $diagn
     ++$count;
 };
 try {
+    $fs->mkdir($imageDirectory);
+    file_put_contents($imageDirectory.'/.public', '');
+    file_put_contents($imageDirectory.'/preview.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true));
+    $imageUuid = Contao\Dbafs::addResource('files/'.$prefix.'/preview.png')->uuid;
     $password = bin2hex(random_bytes(24));
     $db->insert('tl_user', ['username' => $prefix, 'name' => $prefix, 'email' => $prefix.'@example.invalid', 'password' => password_hash($password, PASSWORD_DEFAULT), 'admin' => 1, 'language' => 'en', 'dateAdded' => time(), 'tstamp' => time()]);
     $users[] = $user = (int) $db->lastInsertId();
@@ -74,6 +80,7 @@ try {
     $day = (new DateTimeImmutable('2026-10-25', new DateTimeZone('Europe/Berlin')))->getTimestamp();
     $db->insert('tl_calendar_events', ['pid' => $calendar, 'title' => $prefix.' source', 'alias' => $prefix, 'author' => 0, 'source' => 'default', 'recurring' => 0, 'addTime' => 1, 'startDate' => $day, 'endDate' => $day, 'startTime' => (new DateTimeImmutable('2026-10-25T02:30:00+02:00'))->getTimestamp(), 'endTime' => (new DateTimeImmutable('2026-10-25T02:30:00+01:00'))->getTimestamp(), 'ct_sync_key' => hash('sha256', $prefix), 'ct_calendar_id' => 4200000010, 'ct_appointment_id' => 4200000011, 'ct_series_template_id' => $template, 'ct_hash' => hash('sha256', 'initial'), 'ct_description' => 'Literal source description', 'teaser' => '<p>Old teaser</p>', 'published' => 0, 'ct_unpublished_by_sync' => '1', 'tstamp' => time()]);
     $event = (int) $db->lastInsertId();
+    $db->update('tl_calendar_events', ['ct_image_src' => $imageUuid], ['id' => $event]);
     foreach ([['tl_calendar_events', $event], ['tl_ct_series_templates', $template]] as [$parent, $id]) $db->insert('tl_content', ['ptable' => $parent, 'pid' => $id, 'type' => 'text', 'text' => '<p>'.$prefix.' editorial</p>', 'tstamp' => time()]);
 
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
@@ -156,6 +163,9 @@ try {
         $db->delete('tl_trusted_device', ['userId' => $id, 'userClass' => Contao\BackendUser::class]);
         $db->delete('tl_user', ['id' => $id]);
     }
+    if ($imageUuid !== null) $db->delete('tl_files', ['uuid' => $imageUuid]);
+    $db->delete('tl_files', ['path' => 'files/'.$prefix, 'type' => 'folder']);
+    $fs->remove($imageDirectory);
     $db->executeStatement('DELETE FROM tl_log WHERE username LIKE ?', [$prefix.'%']);
     $fs->remove([$sessionDirectory, $diagnostic, $config, $project.'/var/cache/backend_http']);
     $kernel->shutdown();

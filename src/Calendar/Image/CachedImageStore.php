@@ -21,6 +21,7 @@ final class CachedImageStore implements CachedImageStoreInterface
         private readonly string $projectDir,
         private readonly string $uploadPath,
         private readonly string $webDir,
+        private readonly string $imagePath = 'churchtools-import',
     ) {
     }
 
@@ -45,6 +46,8 @@ final class CachedImageStore implements CachedImageStoreInterface
         try {
             $response = $this->http->request('GET', $url, [
                 'max_redirects' => 0,
+                // ChurchTools otherwise returns its 150×150 thumbnail by default.
+                'query' => ['w' => 1920, 'h' => 1920, 'fit' => 'max', 'q' => 90],
                 'timeout' => 20,
                 'max_duration' => 60,
                 'headers' => ['Accept' => 'image/png, image/jpeg, image/gif, image/webp'],
@@ -81,7 +84,7 @@ final class CachedImageStore implements CachedImageStoreInterface
         }
 
         try {
-            $path = $this->store($bytes, $types[$info[2]][1]);
+            $path = $this->store($bytes, $types[$info[2]][1], $image);
             $this->framework->initialize();
             $file = $this->framework->getAdapter(Dbafs::class)->addResource($path);
             $uuid = $file->uuid ?? null;
@@ -96,7 +99,7 @@ final class CachedImageStore implements CachedImageStoreInterface
         }
     }
 
-    private function store(string $bytes, string $extension): string
+    private function store(string $bytes, string $extension, array $image): string
     {
         if (!preg_match('~^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$~D', $this->uploadPath)
             || in_array('..', explode('/', $this->uploadPath), true)
@@ -109,7 +112,22 @@ final class CachedImageStore implements CachedImageStoreInterface
         if (false === $project || false === $upload || !is_dir($upload) || !str_starts_with($upload.'/', $project.'/')) {
             throw new ImageImportException('Invalid Contao upload directory.');
         }
-        $directory = $upload.'/churchtools-import';
+        $date = $image['date'] ?? '';
+        $alias = $image['alias'] ?? '';
+        if (strpbrk($this->imagePath, '{}') !== false && (!is_string($date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $date) || !is_string($alias))) {
+            throw new ImageImportException('Missing event context for ChurchTools image path.');
+        }
+        $safeAlias = trim(preg_replace('/[^\pL\pN_-]+/u', '-', $alias) ?? '', '-');
+        if (str_contains($this->imagePath, '{alias}') && ($safeAlias === '' || strlen($safeAlias) > 180)) {
+            throw new ImageImportException('Invalid event alias for ChurchTools image path.');
+        }
+        $relative = strtr($this->imagePath, ['{year}' => substr($date, 0, 4), '{month}' => substr($date, 5, 2), '{day}' => substr($date, 8, 2), '{alias}' => $safeAlias]);
+        if (strlen($relative) > 512 || !preg_match('~^[\pL\pN_-]+(?:/[\pL\pN_-]+)*$~uD', $relative)) {
+            throw new ImageImportException('Invalid ChurchTools image path.');
+        }
+        $segments = explode('/', $relative);
+        $root = array_shift($segments);
+        $directory = $upload.'/'.$root;
         if (is_link($directory)) {
             throw new ImageImportException('Invalid ChurchTools image directory.');
         }
@@ -118,10 +136,16 @@ final class CachedImageStore implements CachedImageStoreInterface
                 throw new ImageImportException('Unable to create ChurchTools image directory.');
             }
         }
-        if (!is_dir($directory) || realpath($directory) !== $directory || is_link($directory.'/.ct-managed') || !is_file($directory.'/.ct-managed') || is_link($directory.'/.public') || !is_file($directory.'/.public')) {
-            throw new ImageImportException('ChurchTools image directory is not managed or public.');
+        if (!is_dir($directory) || realpath($directory) !== $directory || is_link($directory.'/.ct-managed') || is_link($directory.'/.public') || !is_file($directory.'/.public')) {
+            throw new ImageImportException('ChurchTools image directory is not public.');
         }
-        $this->publishDirectory($project, $directory);
+        $this->publishDirectory($project, $directory, $root);
+        foreach ($segments as $segment) {
+            $directory .= '/'.$segment;
+            if (is_link($directory) || (!is_dir($directory) && (file_exists($directory) || !@mkdir($directory, 0755))) || realpath($directory) !== $directory) {
+                throw new ImageImportException('Invalid ChurchTools image directory.');
+            }
+        }
         $name = hash('sha256', $bytes).'.'.$extension;
         $target = $directory.'/'.$name;
         if (is_link($target)) {
@@ -143,9 +167,9 @@ final class CachedImageStore implements CachedImageStoreInterface
         if (is_link($target) || !is_file($target) || hash_file('sha256', $target) !== hash('sha256', $bytes)) {
             throw new ImageImportException('Invalid existing ChurchTools image file.');
         }
-        return $this->uploadPath.'/churchtools-import/'.$name;
+        return $this->uploadPath.'/'.$relative.'/'.$name;
     }
-    private function publishDirectory(string $project, string $directory): void
+    private function publishDirectory(string $project, string $directory, string $root): void
     {
         $web = realpath($this->webDir);
         if (false === $web || !is_dir($web)) {
@@ -166,7 +190,7 @@ final class CachedImageStore implements CachedImageStoreInterface
             }
         }
 
-        $link = $parent.'/churchtools-import';
+        $link = $parent.'/'.$root;
         if (is_link($link) || file_exists($link)) {
             if (realpath($link) !== $directory) {
                 throw new ImageImportException('Conflicting public image directory.');

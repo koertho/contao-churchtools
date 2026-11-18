@@ -27,6 +27,7 @@ final class CalendarEventSynchronizer
         private readonly CachedImageStoreInterface $images,
         private readonly int $pastMonths = 1,
         private readonly int $futureMonths = 6,
+        private readonly string $imagePath = 'churchtools-import',
     ) {
     }
 
@@ -68,6 +69,14 @@ final class CalendarEventSynchronizer
             $mapped = [];
             $imageInputs = [];
             $imageKeys = [];
+            $imageAliases = [];
+            $aliases = [];
+            $reserved = [];
+            if (str_contains($this->imagePath, '{alias}')) {
+                foreach ($db->fetchAllAssociative('SELECT ct_sync_key, alias FROM tl_calendar_events WHERE pid=? AND ct_sync_key IS NOT NULL', [$id]) as $existingAlias) {
+                    $aliases[$existingAlias['ct_sync_key']] = $existingAlias['alias'];
+                }
+            }
             foreach ($snapshot as $item) {
                 if ($item['internal'] || $window->outside($item['fields']) !== null) {
                     continue;
@@ -80,9 +89,16 @@ final class CalendarEventSynchronizer
                 $mapped[$fields['ct_sync_key']] = $fields;
                 $source = $item['fields'];
                 if ($source['sourceImageId'] !== null) {
-                    $imageKey = hash('sha256', $source['sourceImageId']."\n".$source['sourceImageUrl']);
+                    $alias = '';
+                    if (str_contains($this->imagePath, '{alias}')) {
+                        $alias = $aliases[$fields['ct_sync_key']] ?? $this->slug->generate($fields['_sourceTitle'].'-'.$fields['_localDate'], (int) $archive['jumpTo'], static fn (string $value): bool => isset($reserved[$value]) || (bool) $db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$value]));
+                        $reserved[$alias] = true;
+                        $imageAliases[$fields['ct_sync_key']] = $alias;
+                    }
+                    $context = strtr($this->imagePath, ['{year}' => substr($fields['_localDate'], 0, 4), '{month}' => substr($fields['_localDate'], 5, 2), '{day}' => substr($fields['_localDate'], 8, 2), '{alias}' => $alias]);
+                    $imageKey = hash('sha256', $source['sourceImageId']."\n".$source['sourceImageUrl'].($this->imagePath === 'churchtools-import' ? '' : "\n".$context));
                     $imageKeys[$fields['ct_sync_key']] = $imageKey;
-                    $imageInputs[$imageKey] = ['id' => $source['sourceImageId'], 'url' => $source['sourceImageUrl']];
+                    $imageInputs[$imageKey] = ['id' => $source['sourceImageId'], 'url' => $source['sourceImageUrl'], 'date' => $fields['_localDate'], 'alias' => $alias];
                 }
             }
             $images = [];
@@ -123,16 +139,24 @@ final class CalendarEventSynchronizer
                 unset($fields['_sourceTitle'], $fields['_localDate'], $fields['_repeatId']);
                 $fields['ct_series_template_id'] = $seriesId;
                 $fields['ct_last_sync'] = $now;
-                $imageKey = $imageKeys[$key] ?? null;
-                $imageFields = $imageKey === null ? ['ct_image_src' => null, 'ct_image_key' => null]
-                    : (isset($images[$imageKey]) ? ['ct_image_src' => $images[$imageKey], 'ct_image_key' => $imageKey] : []);
-                $imageChanged = $event !== null && $imageFields !== [] && (($event['ct_image_src'] ?? null) !== $imageFields['ct_image_src'] || ($event['ct_image_key'] ?? null) !== $imageFields['ct_image_key']);
-                $fields += $imageFields;
+                $alias = $event['alias'] ?? null;
                 if ($event === null) {
-                    $alias = $this->slug->generate($rawTitle.'-'.$localDate, (int) $archive['jumpTo'], static fn (string $alias): bool => (bool) $db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$alias]));
+                    $candidate = $imageAliases[$key] ?? null;
+                    $alias = $candidate !== null && !$db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$candidate]) ? $candidate : $this->slug->generate($rawTitle.'-'.$localDate, (int) $archive['jumpTo'], static fn (string $value): bool => (bool) $db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$value]));
                     if ($alias === '' || strlen($alias) > 255) {
                         throw new \DomainException('Generated alias exceeds native event limits.');
                     }
+                }
+                $imageKey = $imageKeys[$key] ?? null;
+                $imageFields = $imageKey === null ? ['ct_image_src' => null, 'ct_image_key' => null]
+                    : (isset($images[$imageKey]) ? ['ct_image_src' => $images[$imageKey], 'ct_image_key' => $imageKey] : []);
+                if (isset($imageAliases[$key]) && $imageAliases[$key] !== $alias) {
+                    // An editor changed the alias during retrieval; retry with the new path next run.
+                    $imageFields = [];
+                }
+                $imageChanged = $event !== null && $imageFields !== [] && (($event['ct_image_src'] ?? null) !== $imageFields['ct_image_src'] || ($event['ct_image_key'] ?? null) !== $imageFields['ct_image_key']);
+                $fields += $imageFields;
+                if ($event === null) {
                     $db->insert('tl_calendar_events', $fields + ['pid' => $id, 'tstamp' => $now, 'published' => '1', 'ct_unpublished_by_sync' => '', 'alias' => $alias]);
                     $eventId = (int) $db->lastInsertId();
                     ++$counts['inserted'];

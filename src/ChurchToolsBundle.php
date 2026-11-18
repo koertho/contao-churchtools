@@ -38,6 +38,12 @@ final class ChurchToolsBundle extends AbstractBundle
             ->arrayNode('sync')->addDefaultsIfNotSet()->children()
                 ->integerNode('future_months')->min(1)->max(120)->defaultValue(6)->end()
                 ->integerNode('past_months')->min(0)->max(120)->defaultValue(1)->end()
+                ->stringNode('image_path')->defaultValue('churchtools-import')
+                    ->validate()->ifTrue(static function (string $path): bool {
+                        $plain = str_replace(['{year}', '{month}', '{day}', '{alias}'], 'placeholder', $path);
+                        return strlen($path) > 512 || !preg_match('~^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$~D', $plain);
+                    })->thenInvalid('Image path must be relative and may contain only safe path segments and {year}, {month}, {day}, {alias} placeholders.')->end()
+                ->end()
             ->end()->end()
         ->end();
     }
@@ -52,13 +58,14 @@ final class ChurchToolsBundle extends AbstractBundle
             ->factory([HttpClient::class, 'create']);
         $services->set(Transport::class)->args([service('church_tools.http_client'), $config['instance_url']]);
         $services->set(ChurchToolsClient::class)->args([service(Transport::class), $config['token']]);
-        $services->set(CachedImageStore::class)->args([service('church_tools.http_client'), $config['instance_url'], service('contao.framework'), '%kernel.project_dir%', '%contao.upload_path%', '%contao.web_dir%']);
+        $services->set(CachedImageStore::class)->args([service('church_tools.http_client'), $config['instance_url'], service('contao.framework'), '%kernel.project_dir%', '%contao.upload_path%', '%contao.web_dir%', $config['sync']['image_path']]);
         $services->alias(CachedImageStoreInterface::class, CachedImageStore::class);
         $services->set(TokenSetup::class)->args([service(Transport::class), $config['setup']['username'], $config['setup']['password']]);
         $services->set(SetupTokenCommand::class);
         $services->load('Koertho\\ContaoChurchTools\\Calendar\\Sync\\', __DIR__.'/Calendar/Sync/')->exclude([__DIR__.'/Calendar/Sync/SourceOccurrence.php', __DIR__.'/Calendar/Sync/SyncWindow.php']);
         $services->set(CalendarEventSynchronizer::class)
             ->arg('$slug', service('contao.slug'))
+            ->arg('$imagePath', $config['sync']['image_path'])
             ->arg('$pastMonths', $config['sync']['past_months'])
             ->arg('$futureMonths', $config['sync']['future_months']);
         $services->set(SyncCalendarEventsCommand::class);

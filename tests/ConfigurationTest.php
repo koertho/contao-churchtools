@@ -21,6 +21,7 @@ final class ConfigurationTest extends TestCase
         );
         self::assertSame(0, $config['sync']['past_months']);
         self::assertSame(6, $config['sync']['future_months']);
+        self::assertSame('churchtools-import', $config['sync']['image_path']);
     }
 
     public static function invalidConfig(): iterable
@@ -28,6 +29,9 @@ final class ConfigurationTest extends TestCase
         yield 'negative retention' => [['sync' => ['past_months' => -1]]];
         yield 'empty future window' => [['sync' => ['future_months' => 0]]];
         yield 'unknown key' => [['instance' => 'https://example.org']];
+        yield 'path traversal' => [['sync' => ['image_path' => '../private']]];
+        yield 'unknown placeholder' => [['sync' => ['image_path' => 'churchtools/{unknown}']]];
+        yield 'absolute path' => [['sync' => ['image_path' => '/outside']]];
     }
 
     #[DataProvider('invalidConfig')]

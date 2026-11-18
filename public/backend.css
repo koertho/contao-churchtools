@@ -15,3 +15,9 @@
 .ct-source-locked legend::after {
     content: ' 🔒';
 }
+
+.ct-source-image img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 return [
     'sourceFieldsLocked' => 'Gesperrte Felder werden in ChurchTools gepflegt. Teaser, Bild und Inhalte können hier ergänzt werden.',
+    'sourceImage' => 'ChurchTools-Bild',
+    'sourceImageHelp' => 'Dieses Bild wird in ChurchTools gepflegt und verwendet, wenn kein eigenes Termin- oder Serienbild hinterlegt ist.',
+    'sourceImageEmpty' => 'Kein ChurchTools-Bild verfügbar.',
     'invalidCalendar' => 'Bitte einen gültigen ChurchTools-Kalender auswählen.',
     'calendarAlreadyAssigned' => 'Dieser ChurchTools-Kalender ist bereits einem anderen Kalenderarchiv zugeordnet.',
     'calendarUnavailable' => 'ChurchTools-Kalender sind derzeit nicht erreichbar. Die gespeicherte Auswahl bleibt erhalten.',

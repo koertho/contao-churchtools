@@ -17,11 +17,11 @@ final class CalendarAssignment
         }
         if ((!is_int($value) && (!is_string($value) || !preg_match('/^[1-9][0-9]{0,9}$/D', $value)))
             || (int) $value < 1 || (int) $value > 4294967295) {
-            throw new \InvalidArgumentException('Select a valid ChurchTools calendar.');
+            throw new \InvalidArgumentException('invalidCalendar');
         }
         $id = (int) $value;
         if ($this->connection->fetchOne('SELECT id FROM tl_calendar WHERE ct_calendar_id=? AND id<>?', [$id, $archiveId]) !== false) {
-            throw new \InvalidArgumentException('This ChurchTools calendar is already assigned to another calendar archive.');
+            throw new \InvalidArgumentException('calendarAlreadyAssigned');
         }
 
         return $id;

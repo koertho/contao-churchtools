@@ -7,11 +7,11 @@
 
 <div class="event layout_list{{ classList|default }}">
 
-  <h2><a href="{{ href|default }}" title="{{ ct_imported|default(false) ? title : title|insert_tag }} ({% if day|default %}{{ day }}, {% endif %}{{ date }}{% if time %} {{ time }}{% endif %})"{{ attrs(target) }}>{{ link }}</a></h2>
+  <h2><a href="{{ href|default }}" title="{{ ct_imported|default(false) ? title|churchtools_source_text : title|insert_tag }} ({% if day|default %}{{ day }}, {% endif %}{{ date }}{% if time %} {{ time }}{% endif %})"{{ attrs(target) }}>{{ ct_imported|default(false) ? link|churchtools_source_text : link }}</a></h2>
   <p class="time"><time datetime="{{ datetime }}">{{ date }}{% if time %} {{ time }}{% endif %}</time></p>
 
   {% if location %}
-    <p class="location">{{ location }}{% if address %} ({{ address }}){% endif %}</p>
+    <p class="location">{{ ct_imported|default(false) ? location|churchtools_source_text : location }}{% if address %} ({{ ct_imported|default(false) ? address|churchtools_source_text : address }}){% endif %}</p>
   {% endif %}
 
   {% if addImage %}

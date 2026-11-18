@@ -23,6 +23,9 @@ if ($command->run(new ArrayInput([]), $output) !== 2) {
     throw new RuntimeException('Missing explicit output should fail before any network request.');
 }
 $sync = $application->find('koertho:churchtools:calendar:sync');
+if ($application->find('church-tools:sync') !== $sync) {
+    throw new RuntimeException('Legacy sync command alias is not registered.');
+}
 if ($sync->run(new ArrayInput(['--archive' => '0']), $output) !== 2) {
     throw new RuntimeException('Invalid archive should fail before any network or database request.');
 }

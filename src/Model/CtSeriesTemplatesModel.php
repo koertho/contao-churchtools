@@ -7,7 +7,7 @@ namespace Koertho\ContaoChurchTools\Model;
 use Contao\Model;
 use Contao\Model\MetadataTrait;
 
-final class ChurchToolsSeriesTemplateModel extends Model
+final class CtSeriesTemplatesModel extends Model
 {
     use MetadataTrait;
 

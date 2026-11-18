@@ -89,6 +89,41 @@ final class SynchronizerTest extends TestCase
         return $this->db->fetchAssociative('SELECT * FROM tl_calendar_events ORDER BY id LIMIT 1');
     }
 
+    public function testUnsupportedOccurrenceReportsSafeIdentifiersWithoutExposingTitle(): void
+    {
+        $this->remote->rows = [RemoteFixture::row('bad-uid', '2026-09-20T08:00:00.123456Z', '2026-09-20T09:00:00Z')];
+        $this->remote->rows[0]['appointment']['base']['title'] = 'PRIVATE_SENTINEL';
+        $result = $this->runSync();
+        self::assertSame('failed', $result['status']);
+        self::assertStringContainsString('appointment 1', $result['error']);
+        self::assertStringContainsString(hash('sha256', 'bad-uid'), $result['error']);
+        self::assertStringNotContainsString('PRIVATE_SENTINEL', $result['error']);
+    }
+
+    public function testRemoteFetchDoesNotBlockEditorLock(): void
+    {
+        $params = (new DsnParser(['mysql' => 'pdo_mysql']))->parse(getenv('CHURCHTOOLS_TEST_DATABASE_URL'));
+        $editor = DriverManager::getConnection($params);
+        $lock = 'ct-calendar:'.substr(hash('sha256', $this->db->getDatabase().':1'), 0, 48);
+        $fetchLock = 'ct-fetch:'.substr(hash('sha256', $this->db->getDatabase().':1'), 0, 48);
+        $available = [];
+        $competing = [];
+        $this->remote->onRequest = static function () use ($editor, $lock, $fetchLock, &$available, &$competing): void {
+            $competing[] = (int) $editor->fetchOne('SELECT GET_LOCK(?,0)', [$fetchLock]);
+            $acquired = (int) $editor->fetchOne('SELECT GET_LOCK(?,0)', [$lock]);
+            $available[] = $acquired;
+            if ($acquired === 1) $editor->fetchOne('SELECT RELEASE_LOCK(?)', [$lock]);
+        };
+        try {
+            self::assertSame('success', $this->runSync()['status']);
+            self::assertNotEmpty($available);
+            self::assertSame([1], array_values(array_unique($available)));
+            self::assertSame([0], array_values(array_unique($competing)), 'Concurrent sync fetches must remain serialized.');
+        } finally {
+            $editor->close();
+        }
+    }
+
     public function testUnchangedRunPreservesEditorialDataAliasAndDoesNotInvalidate(): void
     {
         self::assertSame('success', $this->runSync()['status']);

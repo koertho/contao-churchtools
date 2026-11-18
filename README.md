@@ -32,7 +32,7 @@ The **ChurchTools series** backend module contains automatically created series 
 - Image: a valid individual event image, otherwise the series image and its settings.
 - CT descriptions are literal plaintext with preserved line breaks. Source HTML, Markdown and insert tags are not executed.
 
-Use native Contao event lists/calendars. Select **`event_list_churchtools`** for lists to apply the full inherited image configuration; select **`event_full_churchtools`** for the event reader. It uses the same resolver as the list hook and remains overridable through Contao's managed Twig templates. A custom Twig event template can call `churchtools_event(_context)` to obtain resolved data; `details` and `hasDetails` are lazy closures. Custom templates that bypass this integration must opt into the resolver themselves. Individual reader images retain the native module image-size override. An inherited reader image uses the series size; a derived Twig template can explicitly override it with `churchtools_event(_context, [640, 360, 'crop'])`, because the native reader does not expose its module size in the event context.
+Use native Contao event lists/calendars. Select **`event_list_churchtools`** for lists to apply the full inherited image configuration; select **`event_full_churchtools`** for the event reader. It uses the same resolver as the list hook and remains overridable through Contao's managed Twig templates. A custom Twig event template can call `churchtools_event(_context)` to obtain resolved data and must render imported title, location and address through the `churchtools_source_text` filter; `details` and `hasDetails` are lazy closures. Custom templates that bypass this integration must opt into the resolver themselves. Individual reader images retain the native module image-size override. An inherited reader image uses the series size; a derived Twig template can explicitly override it with `churchtools_event(_context, [640, 360, 'crop'])`, because the native reader does not expose its module size in the event context.
 
 A known occurrence retains its Contao ID and individual content while its calculated UID survives. If CT detaches a single occurrence and keeps that UID, its previous series template remains assigned. A newly imported standalone occurrence has no inferred former series. CT series splits can regenerate UIDs: old events are unpublished within the active window, new events are imported, and a warning identifies old events with individual content. There is no heuristic transfer of content to new identities.
 
@@ -41,11 +41,12 @@ A known occurrence retains its Contao ID and individual content while its calcul
 ```sh
 php vendor/bin/contao-console koertho:churchtools:calendar:sync
 php vendor/bin/contao-console koertho:churchtools:calendar:sync --archive=1
+# The former church-tools:sync name remains available as an alias.
 ```
 
 CLI and the Contao cron job (`*/15 * * * *`) use the same synchronizer. Configure the normal Contao cron invocation on the server. Output/logs contain local IDs, fixed diagnostics and counts, never tokens or raw responses. Invalid archive input returns exit 2; failed/missing/locked archives return exit 1.
 
-Each archive is locked independently without waiting. A validated full/chunk snapshot is mapped before transactional writes; changed selections are rechecked under lock. One archive's failure does not undo another archive's success. An invalid, failed, partial or ambiguous response never authorizes absence cleanup. Completely empty calendar windows are conservatively rejected because access loss cannot reliably be distinguished from deletion of the final appointment.
+Each archive has a non-waiting fetch lock and a separate write lock; editors can save during the remote fetch. Writes wait up to five seconds for an active editor or synchronization. A validated full/chunk snapshot is mapped before transactional writes; changed selections are rechecked under lock. One archive's failure does not undo another archive's success. An invalid, failed, partial or ambiguous response never authorizes absence cleanup. Completely empty calendar windows are conservatively rejected because access loss cannot reliably be distinguished from deletion of the final appointment.
 
 Unchanged occurrences update only their sync timestamp, without changing event `tstamp` or invalidating content cache. New/changed/unpublished/reactivated events and changed series titles invalidate native cache tags after commit. A post-commit cache failure is reported separately; committed data remains committed. Restarting/retrying alone does not guarantee delivery of a previously failed invalidation: perform the normal Contao cache purge when resolving that condition.
 
@@ -53,7 +54,7 @@ Manual publication choices survive synchronization. A reappearing event is autom
 
 The configurable import window defaults to one calendar month back and six months ahead, with month-end clamping and explicit local overlap filtering. Outside the active window, already imported events remain stored and keep their publication state; they are no longer reconciled with CT. Removing/replacing the source selection unpublishes the old source events within the active window while preserving their content and historical records. Old events and series templates are never automatically deleted.
 
-The mapper uses calculated occurrence dates, the initialized Contao timezone, inclusive all-day end dates and native second-resolution fields. Unrepresentable dates (including nonzero fractions and equal timed endpoints) fail the archive instead of silently changing meaning. Under Contao 6, titles containing `{{` fail safely because native lists interpret insert tags. Oversized/empty titles likewise fail without partial imports.
+The mapper uses calculated occurrence dates, the initialized Contao timezone, inclusive all-day end dates and native second-resolution fields. Unrepresentable dates (including nonzero fractions and equal timed endpoints) fail the archive instead of silently changing meaning. Under Contao 6, titles or location/address fields containing `{{` fail safely because native lists interpret insert tags. Oversized/empty titles likewise fail without partial imports. Unsupported occurrences report the calendar and appointment IDs and a hashed UID; their titles and descriptions are not logged.
 
 ## Optional token setup
 
@@ -64,6 +65,10 @@ php vendor/bin/contao-console church-tools:setup-token --output=/private/secrets
 ```
 
 It verifies the account and token, creates a new private file, refuses existing files/symlinks and never prints a secret. Do not run this to replace an already configured token. A token file can be mapped with `%env(file:CHURCH_TOOLS_TOKEN_FILE)%`.
+
+## Security note for existing imported data
+
+The bundled event templates escape CT fields before Contao processes insert tags, and new syncs reject titles and location/address fields containing `{{` on Contao 6. Existing Contao 6 imports created before this validation may still expose insert tags in location/address when rendered by native or custom templates. Audit existing imported `title`, `location` and `address` fields before enabling public output; remove or correct unsafe source data, and purge the HTTP cache. Custom templates must use the documented `churchtools_source_text` filter. No generic `parseTemplate` hook is installed.
 
 ## Upgrade from the previous prototype
 

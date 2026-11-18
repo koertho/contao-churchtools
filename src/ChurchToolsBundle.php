@@ -52,7 +52,7 @@ final class ChurchToolsBundle extends AbstractBundle
         $services->set(ChurchToolsClient::class)->args([service(Transport::class), $config['token']]);
         $services->set(TokenSetup::class)->args([service(Transport::class), $config['setup']['username'], $config['setup']['password']]);
         $services->set(SetupTokenCommand::class);
-        $services->load('Koertho\\ContaoChurchTools\\Calendar\\Sync\\', __DIR__.'/Calendar/Sync/')->exclude([__DIR__.'/Calendar/Sync/EventFields.php', __DIR__.'/Calendar/Sync/SourceOccurrence.php', __DIR__.'/Calendar/Sync/SyncWindow.php']);
+        $services->load('Koertho\\ContaoChurchTools\\Calendar\\Sync\\', __DIR__.'/Calendar/Sync/')->exclude([__DIR__.'/Calendar/Sync/SourceOccurrence.php', __DIR__.'/Calendar/Sync/SyncWindow.php']);
         $services->set(CalendarEventSynchronizer::class)
             ->arg('$slug', service('contao.slug'))
             ->arg('$pastMonths', $config['sync']['past_months'])

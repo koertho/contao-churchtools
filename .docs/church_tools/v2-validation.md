@@ -52,3 +52,18 @@ Contao 6 native event lists interpret insert tags in source titles; titles conta
 Use `event_list_churchtools` for full inherited list image settings and `event_full_churchtools` for readers. The native list reloads event models for image metadata, so the hook alone cannot supply all inherited image settings. Own reader images keep native module sizing; inherited reader images default to the series size because the native reader does not expose its module size to the event template. A derived Twig template can pass `churchtools_event(_context, [width, height, mode])` explicitly. These are documented integration requirements, not silent global model changes.
 
 Invalidation failure after commit cannot roll back committed content or guarantee later delivery. Its status retains success counts and calls for a cache purge/retry. No durable outbox is implemented. HTTP-cache behavior in the production hosting topology and visual project-template/browser acceptance remain deployment checks.
+
+## Review-Nachprüfung
+
+- Contao 5.7: vollständige Listen- und Leser-Ausgabe erneut durch den Insert-Tag-Parser geführt. Titel und Ort mit `{{env::host}}` bleiben im DOM wörtlich erhalten, ohne HTML auszuführen.
+- Contao 6: nicht wörtlich darstellbare Insert-Tags in CT-Orts- und Adressfeldern werden wie bereits bei Titeln vor dem Schreiben zurückgewiesen. Bereits gespeicherte CT-6-Ortsdaten werden dadurch nicht rückwirkend bereinigt.
+- Zwei Datenbankverbindungen prüfen, dass POST und native Augen-Aktion die Schreibsperre halten, ein API-Abruf redaktionelles Speichern nicht sperrt und konkurrierende Sync-Abrufe serialisiert bleiben. Beide Schreibseiten warten höchstens fünf Sekunden.
+- Nicht darstellbare Termine melden Kalender-ID, Termin-ID, UID-Hash und einen festen Grund; Titel und Beschreibung gelangen nicht in die Fehlermeldung. Das Archiv wird weiterhin vollständig zurückgerollt, um Abwesenheit nicht fälschlich als Löschung zu interpretieren.
+- Der frühere CLI-Befehl ist wieder als Alias registriert. Das Contao-Model folgt der Tabellenbenennung; Kalenderauswahlfehler sind übersetzt. Die native Bildverlinkung der Serienbilder wurde in der tatsächlichen Eventliste geprüft.
+- Lokal: 111 PHPUnit-Tests auf 5.7 (ein gezielt übersprungener Contao-6-Test) und 6.0, 71 native Abnahmeprüfungen und 107 authentifizierte Backend-HTTP-Prüfungen je Version. Der JZM-Sync meldete anschließend 125 unveränderte Termine.
+
+### Accepted remaining security boundary
+
+The project explicitly retains the decision not to use a generic `parseTemplate` hook. Therefore the mitigation covers the bundled Twig templates and new imports. Existing pre-validation Contao 6 location/address values in native or third-party templates, are not fully remediated. Contao 5.7’s native page-title decoder escapes insert-tag braces; this behavior was verified separately. Existing HTTP-cache entries must be purged. A count-only audit of the local JZM database found zero imported title or location/address fields containing literal or encoded opening braces; this is a local observation, not a guarantee for other installations.
+
+The final source-title policy retains literal, encoded brace pairs on Contao 5.7 and rejects them on Contao 6. The native Contao 5.7 `HtmlDecoder::inputEncodedToPlainText` escapes those braces before the reader sets the HTML head title; an additional integration assertion exercises this exact conversion. Final PHPunit: 112 tests on both versions; two Contao-6-specific mapper checks are skipped on Contao 5.7. Native integration: 72 checks on 5.7 and 71 on 6.0.

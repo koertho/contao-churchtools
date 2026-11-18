@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'invalidCalendar' => 'Bitte einen gültigen ChurchTools-Kalender auswählen.',
+    'calendarAlreadyAssigned' => 'Dieser ChurchTools-Kalender ist bereits einem anderen Kalenderarchiv zugeordnet.',
     'calendarUnavailable' => 'ChurchTools-Kalender sind derzeit nicht erreichbar. Die gespeicherte Auswahl bleibt erhalten.',
     'neverSynced' => 'Noch nicht synchronisiert',
     'emptyWindow' => 'Ein vollständig leeres API-Ergebnis führt ohne Vollständigkeitsnachweis nicht zur automatischen Deaktivierung.',

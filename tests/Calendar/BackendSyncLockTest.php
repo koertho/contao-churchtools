@@ -8,12 +8,14 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Tools\DsnParser;
 use Koertho\ContaoChurchTools\Calendar\Backend\EventProtection;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 final class BackendSyncLockTest extends TestCase
 {
-    public function testSourceSnapshotKeepsSynchronizerOutUntilRequestIsFinished(): void
+    #[DataProvider("writeRequests")]
+    public function testSourceSnapshotKeepsSynchronizerOutUntilRequestIsFinished(string $uri, string $method): void
     {
         $url = getenv('CHURCHTOOLS_TEST_DATABASE_URL') ?: '';
         if (!preg_match('~/churchtools_v2_[a-z0-9_]+(?:\?|$)~D', $url)) {
@@ -25,7 +27,7 @@ final class BackendSyncLockTest extends TestCase
         $editor->executeStatement('CREATE TEMPORARY TABLE tl_calendar_events (id INT PRIMARY KEY, pid INT UNSIGNED, ct_sync_key VARCHAR(64), title VARCHAR(255))');
         $editor->insert('tl_calendar_events', ['id' => 1, 'pid' => 4100000011, 'ct_sync_key' => 'source', 'title' => 'Latest title']);
         $requests = new RequestStack();
-        $requests->push(Request::create('/contao', 'POST'));
+        $requests->push(Request::create($uri, $method));
         $protection = new EventProtection($editor, $requests);
         $lock = 'ct-calendar:'.substr(hash('sha256', $editor->getDatabase().':4100000011'), 0, 48);
         try {
@@ -40,4 +42,10 @@ final class BackendSyncLockTest extends TestCase
             $worker->close();
         }
     }
+    public static function writeRequests(): iterable
+    {
+        yield 'editor POST' => ['/contao', 'POST'];
+        yield 'publication toggle GET' => ['/contao?act=toggle&field=published&id=1', 'GET'];
+    }
+
 }

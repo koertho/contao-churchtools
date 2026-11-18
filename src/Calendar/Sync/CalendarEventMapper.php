@@ -49,6 +49,8 @@ final class CalendarEventMapper
         foreach (['location', 'address'] as $key) {
             if (version_compare(ContaoCoreBundle::getVersion(), '6.0', '<')) {
                 $fields[$key] = str_replace(['{', '}'], ['&#123;', '&#125;'], htmlspecialchars($fields[$key], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+            } elseif (str_contains($fields[$key], '{{')) {
+                throw new \DomainException('Source location cannot be represented literally by native event templates.');
             }
             if (mb_strlen($fields[$key]) > 255) {
                 throw new \DomainException('Source location exceeds native event limits.');

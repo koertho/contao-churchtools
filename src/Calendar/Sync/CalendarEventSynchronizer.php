@@ -48,9 +48,11 @@ final class CalendarEventSynchronizer
     {
         $db = $this->connection;
         $lock = 'ct-calendar:'.substr(hash('sha256', $db->getDatabase().':'.$id), 0, 48);
-        if ((int) $db->fetchOne('SELECT GET_LOCK(?,0)', [$lock]) !== 1) {
+        $fetchLock = 'ct-fetch:'.substr(hash('sha256', $db->getDatabase().':'.$id), 0, 48);
+        if ((int) $db->fetchOne('SELECT GET_LOCK(?,0)', [$fetchLock]) !== 1) {
             return ['status' => 'locked'];
         }
+        $writeLocked = false;
         $transaction = false;
         $committed = false;
         $counts = array_fill_keys(['inserted', 'updated', 'unchanged', 'unpublished', 'reactivated', 'seriesUpdated'], 0);
@@ -66,9 +68,17 @@ final class CalendarEventSynchronizer
                 if ($item['internal'] || $window->outside($item['fields']) !== null) {
                     continue;
                 }
-                $fields = $this->mapper->map($item['fields'], $timezone);
+                try {
+                    $fields = $this->mapper->map($item['fields'], $timezone);
+                } catch (\DomainException $error) {
+                    throw new ApiException(sprintf('Unsupported ChurchTools occurrence: calendar %d, appointment %d, UID SHA-256 %s. %s', $item['fields']['sourceCalendarId'], $item['fields']['sourceAppointmentId'], hash('sha256', $item['fields']['occurrenceUid']), $error->getMessage()));
+                }
                 $mapped[$fields['ct_sync_key']] = $fields;
             }
+            if ((int) $db->fetchOne('SELECT GET_LOCK(?,5)', [$lock]) !== 1) {
+                return ['status' => 'locked'];
+            }
+            $writeLocked = true;
             $db->beginTransaction();
             $transaction = true;
             $current = $db->fetchAssociative('SELECT * FROM tl_calendar WHERE id=? FOR UPDATE', [$id]);
@@ -180,7 +190,10 @@ final class CalendarEventSynchronizer
 
             return ['status' => $committed ? 'committed_cache_error' : 'failed', 'error' => $message] + ($committed ? $counts : []);
         } finally {
-            $db->fetchOne('SELECT RELEASE_LOCK(?)', [$lock]);
+            if ($writeLocked) {
+                $db->fetchOne('SELECT RELEASE_LOCK(?)', [$lock]);
+            }
+            $db->fetchOne('SELECT RELEASE_LOCK(?)', [$fetchLock]);
         }
     }
 }

@@ -27,10 +27,11 @@ final class EventProtection implements ResetInterface
     {
         if (!array_key_exists($id, $this->original)) {
             $row = $this->connection->fetchAssociative('SELECT * FROM tl_calendar_events WHERE id=?', [$id]) ?: null;
-            if (($row['ct_sync_key'] ?? null) !== null && $this->requests?->getCurrentRequest()?->isMethod('POST')) {
+            $request = $this->requests?->getCurrentRequest();
+            if (($row['ct_sync_key'] ?? null) !== null && ($request?->isMethod('POST') || $request?->query->get('act') === 'toggle')) {
                 $lock = 'ct-calendar:'.substr(hash('sha256', $this->connection->getDatabase().':'.$row['pid']), 0, 48);
                 if (!isset($this->locks[$lock])) {
-                    if ((int) $this->connection->fetchOne('SELECT GET_LOCK(?,0)', [$lock]) !== 1) {
+                    if ((int) $this->connection->fetchOne('SELECT GET_LOCK(?,5)', [$lock]) !== 1) {
                         throw new ConflictHttpException('ChurchTools synchronization is running. Retry saving this event.');
                     }
                     $this->locks[$lock] = true;

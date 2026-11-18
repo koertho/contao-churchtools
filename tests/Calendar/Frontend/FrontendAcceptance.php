@@ -118,7 +118,7 @@ final class FrontendAcceptance
             imagepng($image, $imagePath);
             $uuid = \Symfony\Component\Uid\Uuid::v1()->toBinary();
             $insert('tl_files', ['type'=>'file', 'uuid'=>$uuid, 'path'=>$relativeImage, 'name'=>$prefix.'.png', 'extension'=>'png']);
-            $db->update('tl_ct_series_templates', ['addImage'=>'1', 'singleSRC'=>$uuid, 'size'=>serialize([4,4,'crop']), 'floating'=>'above', 'overwriteMeta'=>'1', 'alt'=>'Series image alt', 'caption'=>'Series caption marker', 'fullsize'=>'1'], ['id'=>$series]);
+            $db->update('tl_ct_series_templates', ['addImage'=>'1', 'singleSRC'=>$uuid, 'size'=>serialize([4,4,'crop']), 'floating'=>'above', 'overwriteMeta'=>'1', 'alt'=>'Series image alt', 'caption'=>'Series caption marker', 'fullsize'=>'0'], ['id'=>$series]);
             $db->update('tl_calendar_events', ['addImage'=>'1', 'singleSRC'=>str_repeat('x',16)], ['id'=>$event]);
             foreach ($ids['tl_content'] as $contentId) $db->delete('tl_content', ['id'=>$contentId]);
             Registry::getInstance()->reset();
@@ -140,19 +140,24 @@ final class FrontendAcceptance
             $check((new \DOMXPath($sizedDocument))->query('//img[@width="2"]')->length === 1, 'explicit Twig image size overrides inherited reader default');
 
             $check(str_contains($imageReader, '&lt;b&gt;Literal&lt;/b&gt;') && str_contains($imageReader, '&#123;&#123;env::host&#125;&#125;'), 'actual reader keeps source description literal');
-            $literalTitle = 'Source & <b>title</b> {literal}';
-            $mapped = (new CalendarEventMapper())->map(['title'=>$literalTitle, 'location'=>'Room & <b>Hall</b> {literal}', 'address'=>'Street & <b>Address</b>', 'sourceStart'=>date('c',$start), 'sourceEnd'=>date('c',$start+3600), 'allDay'=>false, 'occurrenceUid'=>$prefix, 'sourceCalendarId'=>110, 'sourceAppointmentId'=>1, 'description'=>'Description'], new \DateTimeZone(date_default_timezone_get()));
+            $literalTitle = version_compare(\Contao\CoreBundle\ContaoCoreBundle::getVersion(), '6.0', '<') ? 'Source & <b>title</b> {{env::host}}' : 'Source & <b>title</b> {literal}';
+            $mapped = (new CalendarEventMapper())->map(['title'=>$literalTitle, 'location'=>version_compare(\Contao\CoreBundle\ContaoCoreBundle::getVersion(), '6.0', '<') ? 'Room & <b>Hall</b> {{user::email}}' : 'Room & <b>Hall</b> {literal}', 'address'=>'Street & <b>Address</b>', 'sourceStart'=>date('c',$start), 'sourceEnd'=>date('c',$start+3600), 'allDay'=>false, 'occurrenceUid'=>$prefix, 'sourceCalendarId'=>110, 'sourceAppointmentId'=>1, 'description'=>'Description'], new \DateTimeZone(date_default_timezone_get()));
+            if (version_compare(\Contao\CoreBundle\ContaoCoreBundle::getVersion(), '6.0', '<')) {
+                $headTitle = $container->get('contao.string.html_decoder')->inputEncodedToPlainText($mapped['title']);
+                $check(!str_contains($headTitle, '{{'), 'native reader page-title conversion escapes CT insert tag braces');
+            }
             $db->update('tl_calendar_events', array_intersect_key($mapped,array_flip(['title','location','address'])), ['id'=>$event]);
             Registry::getInstance()->reset();
             $listModule = new ModuleEventlist(new ModuleModel(['id'=>0, 'type'=>'eventlist', 'cal_calendar'=>serialize([$archive]), 'cal_template'=>'event_list_churchtools', 'cal_format'=>'next_7', 'cal_noSpan'=>'', 'cal_limit'=>0, 'perPage'=>0, 'cal_order'=>'ascending', 'imgSize'=>serialize([2,2,'crop'])]));
-            $listHtml = $listModule->generate();
+            $listHtml = $container->get('contao.insert_tag.parser')->replace($listModule->generate());
             $document = new \DOMDocument();
             @$document->loadHTML($listHtml);
             $xpath = new \DOMXPath($document);
             $check($xpath->query('//img[@alt="Series image alt" and @width="2"]')->length === 1, 'actual native list inherits series image metadata and preserves module image size');
             $check(str_contains($listHtml, 'Series caption marker'), 'actual native list inherits series caption');
+            $check($xpath->query('//figure//a[img]')->item(0)?->getAttribute('href') === $xpath->query('//h2/a')->item(0)?->getAttribute('href'), 'inherited list image links to event reader');
             $check($xpath->query('//h2/a')->item(0)?->textContent === $literalTitle, 'actual list title remains literal without double encoding');
-            $check(str_contains($xpath->query('//p[contains(@class,"location")]')->item(0)?->textContent ?? '', 'Room & <b>Hall</b> {literal}'), 'actual list location remains literal without double encoding');
+            $check(str_contains($xpath->query('//p[contains(@class,"location")]')->item(0)?->textContent ?? '', version_compare(\Contao\CoreBundle\ContaoCoreBundle::getVersion(), '6.0', '<') ? 'Room & <b>Hall</b> {{user::email}}' : 'Room & <b>Hall</b> {literal}'), 'actual list location remains literal without double encoding');
             // A valid individual image keeps native reader module image-size overrides.
             $db->update('tl_calendar_events', ['singleSRC'=>$uuid], ['id'=>$event]);
             Registry::getInstance()->reset();
@@ -160,7 +165,7 @@ final class FrontendAcceptance
             $check((string)$nativeEvent->addImage === '1' && $nativeEvent->singleSRC === $uuid, 'native event model sees valid individual image: '.bin2hex((string)$nativeEvent->singleSRC).' expected '.bin2hex($uuid).' addImage '.serialize($nativeEvent->addImage));
             Input::setGet('auto_item', $prefix);
             $readerModule = new ModuleEventReader(new ModuleModel(['id'=>0, 'type'=>'eventreader', 'cal_calendar'=>serialize([$archive]), 'cal_template'=>'event_full_churchtools', 'imgSize'=>serialize([2,2,'crop'])]));
-            $moduleReaderHtml = $readerModule->generate();
+            $moduleReaderHtml = $container->get('contao.insert_tag.parser')->replace($readerModule->generate());
             @$document->loadHTML($moduleReaderHtml);
             $xpath = new \DOMXPath($document);
             $check($xpath->query('//img[@width="2"]')->length === 1, 'native reader individual image preserves configured module dimensions');

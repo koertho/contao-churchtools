@@ -11,7 +11,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'koertho:churchtools:calendar:sync', description: 'Synchronize ChurchTools archives (read-only remote access).')]
+#[AsCommand(name: 'koertho:churchtools:calendar:sync', aliases: ['church-tools:sync'], description: 'Synchronize ChurchTools archives (read-only remote access).')]
 final class SyncCalendarEventsCommand extends Command
 {
     public function __construct(private readonly CalendarEventSynchronizer $synchronizer)

@@ -12,9 +12,10 @@ use Contao\CoreBundle\Image\Studio\Studio;
 use Doctrine\DBAL\Connection;
 use Contao\CoreBundle\Twig\Interop\ContextFactory;
 use Koertho\ContaoChurchTools\Calendar\Frontend\EventContentResolver;
-use Koertho\ContaoChurchTools\Model\ChurchToolsSeriesTemplateModel;
+use Koertho\ContaoChurchTools\Model\CtSeriesTemplatesModel;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
+use Twig\TwigFilter;
 
 final class ChurchToolsCalendarExtension extends AbstractExtension
 {
@@ -30,6 +31,13 @@ final class ChurchToolsCalendarExtension extends AbstractExtension
     public function getFunctions(): array
     {
         return [new TwigFunction('churchtools_event', $this->resolveReader(...))];
+    }
+
+    public function getFilters(): array
+    {
+        return [new TwigFilter('churchtools_source_text', static function (string $value): string {
+            return str_replace(['{', '}'], ['&#123;', '&#125;'], htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        }, ['is_safe' => ['html']])];
     }
 
     public function resolveReader(array $context, array|string|null $imageSize = null): array
@@ -64,7 +72,7 @@ final class ChurchToolsCalendarExtension extends AbstractExtension
                 $dimensions = StringUtil::deserialize($override, true);
                 if (($dimensions[0] ?? 0) > 0 || ($dimensions[1] ?? 0) > 0 || is_numeric($dimensions[2] ?? null) || ($dimensions[2][0] ?? null) === '_') $size = $override;
             }
-            $class = $resolved['ct_image_owner_table'] === 'tl_ct_series_templates' ? ChurchToolsSeriesTemplateModel::class : CalendarEventsModel::class;
+            $class = $resolved['ct_image_owner_table'] === 'tl_ct_series_templates' ? CtSeriesTemplatesModel::class : CalendarEventsModel::class;
             $owner = $this->framework->getAdapter($class)->findByPk($resolved['ct_image_owner_id']);
             $figure = $this->studio->createFigureBuilder()
                 ->fromUuid($resolved['singleSRC'])

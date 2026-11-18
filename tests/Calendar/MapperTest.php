@@ -43,6 +43,28 @@ final class MapperTest extends TestCase
         self::assertSame($expected, $fields['location']);
     }
 
+    public function testContaoSixRejectsInsertTagsInSourceTitle(): void
+    {
+        if (version_compare(\Contao\CoreBundle\ContaoCoreBundle::getVersion(), '6.0', '<')) {
+            self::markTestSkipped('Contao 5 stores escaped source titles.');
+        }
+        $source = RemoteFixture::row();
+        $source['appointment']['base']['title'] = '{{env::host}}';
+        $this->expectException(\DomainException::class);
+        (new CalendarEventMapper())->map(SourceOccurrence::fields($source), new \DateTimeZone('Europe/Berlin'));
+    }
+
+    public function testContaoSixRejectsInsertTagsInSourceLocation(): void
+    {
+        if (version_compare(\Contao\CoreBundle\ContaoCoreBundle::getVersion(), '6.0', '<')) {
+            self::markTestSkipped('Contao 5 stores escaped source fields.');
+        }
+        $source = RemoteFixture::row();
+        $source['appointment']['base']['address'] = ['name' => '{{env::host}}'];
+        $this->expectException(\DomainException::class);
+        (new CalendarEventMapper())->map(SourceOccurrence::fields($source), new \DateTimeZone('Europe/Berlin'));
+    }
+
     public function testUidStaysStableWhenDateAndAppointmentIdChange(): void
     {
         $first = SourceOccurrence::fields(RemoteFixture::row('stable'));

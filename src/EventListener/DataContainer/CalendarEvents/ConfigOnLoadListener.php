@@ -9,13 +9,14 @@ use Contao\DataContainer;
 use Contao\Message;
 use Koertho\ContaoChurchTools\Calendar\Backend\BackendActionGuard;
 use Koertho\ContaoChurchTools\Calendar\Backend\EventProtection;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[AsCallback(table: 'tl_calendar_events', target: 'config.onload', priority: 1024)]
 final class ConfigOnLoadListener
 {
-    public function __construct(private readonly EventProtection $protection, private readonly BackendActionGuard $guard, private readonly UrlGeneratorInterface $router, private readonly TranslatorInterface $translator) {}
+    public function __construct(private readonly EventProtection $protection, private readonly BackendActionGuard $guard, private readonly UrlGeneratorInterface $router, private readonly TranslatorInterface $translator, private readonly ?RequestStack $requests = null) {}
 
     public function __invoke(?DataContainer $dc = null): void
     {
@@ -25,10 +26,17 @@ final class ConfigOnLoadListener
         if (($row['ct_sync_key'] ?? null) === null) {
             return;
         }
+        $GLOBALS['TL_CSS'][] = 'bundles/churchtools/backend.css|static';
+        $request = $this->requests?->getCurrentRequest();
+        if ($request?->isMethod('GET') && $request->query->get('act') === 'edit') {
+            Message::addInfo($this->translator->trans('sourceFieldsLocked', [], 'church_tools_backend'));
+        }
         $GLOBALS['TL_DCA']['tl_calendar_events']['fields']['author']['eval']['mandatory'] = false;
-        foreach (EventProtection::SOURCE_FIELDS as $field) {
+        foreach ([...EventProtection::SOURCE_FIELDS, 'ct_description'] as $field) {
             $GLOBALS['TL_DCA']['tl_calendar_events']['fields'][$field]['eval']['readonly'] = true;
             $GLOBALS['TL_DCA']['tl_calendar_events']['fields'][$field]['eval']['versionize'] = false;
+            $classes = $GLOBALS['TL_DCA']['tl_calendar_events']['fields'][$field]['eval']['tl_class'] ?? '';
+            $GLOBALS['TL_DCA']['tl_calendar_events']['fields'][$field]['eval']['tl_class'] = trim($classes.' ct-source-locked');
         }
         $GLOBALS['TL_DCA']['tl_calendar_events']['fields']['published']['eval']['versionize'] = false;
         foreach (['default', 'internal', 'article', 'external'] as $palette) {

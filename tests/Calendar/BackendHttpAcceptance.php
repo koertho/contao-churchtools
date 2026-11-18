@@ -22,6 +22,15 @@ final class BackendHttpAcceptance
         $form = $request($edit);
         $check($form[0] === 200, 'Authenticated imported event edit HTTP '.$form[0]);
         $check(str_contains($form[1], 'name="title"') && str_contains($form[1], 'readonly'), 'Imported source fields present as readonly');
+        $check(str_contains($form[1], 'ct-source-locked'), 'Imported source fields have a visible lock marker');
+        $check(str_contains($form[1], 'maintained in ChurchTools'), 'Imported event explains where source fields are edited');
+        $check(str_contains($form[1], 'bundles/churchtools/backend.css'), 'Backend loads the stylesheet for locked fields');
+        $document = new \DOMDocument();
+        @$document->loadHTML($form[1]);
+        $xpath = new \DOMXPath($document);
+        $locked = 'ancestor::*[contains(concat(" ",normalize-space(@class)," ")," ct-source-locked ")]';
+        $check($xpath->query('//input[@name="title"]/'.$locked)->length > 0, 'Title belongs to a visually locked field');
+        $check($xpath->query('//textarea[@name="teaser"]/'.$locked)->length === 0, 'Editorial teaser is not visually locked');
         $check(str_contains($form[1], 'do=ct_series') && str_contains($form[1], 'id='.$series), 'Series navigation appears in actual event form');
         $post = self::controls($form[1], 'tl_calendar_events');
         $post['teaser'] = '<p>HTTP editorial teaser</p>';
@@ -77,6 +86,12 @@ final class BackendHttpAcceptance
         $check((int) $db->fetchOne('SELECT COUNT(*) FROM tl_content WHERE pid=? AND ptable=?', [$event, 'tl_calendar_events']) === 1, 'Event editorial content survives attempted destructive actions');
         $check((int) $db->fetchOne('SELECT COUNT(*) FROM tl_content WHERE pid=? AND ptable=?', [$series, 'tl_ct_series_templates']) === 1, 'Shared editorial content survives attempted destructive actions');
         $assertSource('Destructive actions');
+
+        $db->insert('tl_calendar_events', ['pid' => $calendar, 'title' => 'Manual event', 'tstamp' => time()]);
+        $manualId = (int) $db->lastInsertId();
+        $manual = $request('/contao?do=calendar&table=tl_calendar_events&act=edit&id='.$manualId);
+        $check($manual[0] === 200 && !str_contains($manual[1], 'ct-source-locked'), 'Manual events in the same archive have no lock markers');
+        $check(!str_contains($manual[1], 'maintained in ChurchTools'), 'Manual events do not show the imported-event notice');
     }
 
     /** Collect exactly the successful controls a browser submits, including readonly fields. */

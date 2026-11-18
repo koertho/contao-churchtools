@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'sourceFieldsLocked' => 'Gesperrte Felder werden in ChurchTools gepflegt. Teaser, Bild und Inhalte können hier ergänzt werden.',
     'invalidCalendar' => 'Bitte einen gültigen ChurchTools-Kalender auswählen.',
     'calendarAlreadyAssigned' => 'Dieser ChurchTools-Kalender ist bereits einem anderen Kalenderarchiv zugeordnet.',
     'calendarUnavailable' => 'ChurchTools-Kalender sind derzeit nicht erreichbar. Die gespeicherte Auswahl bleibt erhalten.',

@@ -1,3 +1,17 @@
 #tl_navigation .group-church_tools {
     background: url(icons/churchtools-mark.svg) 3px 2px no-repeat;
 }
+
+.ct-source-locked input:not([type="hidden"]),
+.ct-source-locked textarea,
+.ct-source-locked select {
+    border-style: dashed;
+    opacity: .7;
+    cursor: not-allowed;
+}
+
+.ct-source-locked h3 label::after,
+.ct-source-locked .tl_checkbox_single_container label::after,
+.ct-source-locked legend::after {
+    content: ' 🔒';
+}

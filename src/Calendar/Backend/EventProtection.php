@@ -15,7 +15,7 @@ use Symfony\Contracts\Service\ResetInterface;
 /** Preserve source instants even when the native onsubmit callback reparses a DST clock. */
 final class EventProtection implements ResetInterface
 {
-    public const SOURCE_FIELDS = ['pid', 'title', 'addTime', 'startDate', 'endDate', 'startTime', 'endTime', 'location', 'address', 'recurring', 'repeatEach', 'recurrences', 'repeatEnd', 'source'];
+    public const SOURCE_FIELDS = ['pid', 'title', 'addTime', 'startDate', 'endDate', 'startTime', 'endTime', 'location', 'address', 'recurring', 'repeatEach', 'recurrences', 'repeatEnd'];
     public const SYNC_FIELDS = ['ct_sync_key', 'ct_calendar_id', 'ct_appointment_id', 'ct_series_template_id', 'ct_hash', 'ct_last_sync', 'ct_unpublished_by_sync', 'ct_description', 'ct_image_src', 'ct_image_key'];
 
     private array $original = [];

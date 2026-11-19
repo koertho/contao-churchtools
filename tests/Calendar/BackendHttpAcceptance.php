@@ -34,6 +34,7 @@ final class BackendHttpAcceptance
         $locked = 'ancestor::*[contains(concat(" ",normalize-space(@class)," ")," ct-source-locked ")]';
         $check($xpath->query('//input[@name="title"]/'.$locked)->length > 0, 'Title belongs to a visually locked field');
         $check($xpath->query('//textarea[@name="teaser"]/'.$locked)->length === 0, 'Editorial teaser is not visually locked');
+        $check($xpath->query('//input[@name="source"]')->length > 0 && $xpath->query('//input[@name="source"]/'.$locked)->length === 0, 'Redirect type is editable');
         $check(str_contains($form[1], 'do=ct_series') && str_contains($form[1], 'id='.$series), 'Series navigation appears in actual event form');
         $post = self::controls($form[1], 'tl_calendar_events');
         $post['teaser'] = '<p>HTTP editorial teaser</p>';
@@ -95,6 +96,19 @@ final class BackendHttpAcceptance
         $withoutImage = $request($edit);
         $check($withoutImage[0] === 200 && str_contains($withoutImage[1], 'No ChurchTools image available.'), 'Imported event without an image has a clear empty state');
         $db->update('tl_calendar_events', ['ct_image_src' => $before['ct_image_src']], ['id' => $event]);
+
+        $redirectForm = $request($edit);
+        $redirect = self::controls($redirectForm[1], 'tl_calendar_events');
+        $redirect['source'] = 'external';
+        $redirect['save'] = '1';
+        $request($edit, $redirect);
+        $externalForm = $request($edit);
+        $external = self::controls($externalForm[1], 'tl_calendar_events');
+        $external['source'] = 'external';
+        $external['url'] = 'https://example.org/redirect';
+        $external['save'] = '1';
+        $savedRedirect = $request($edit, $external);
+        $check($savedRedirect[0] < 400 && $db->fetchOne('SELECT source FROM tl_calendar_events WHERE id=?', [$event]) === 'external' && $db->fetchOne('SELECT url FROM tl_calendar_events WHERE id=?', [$event]) === 'https://example.org/redirect', 'External redirect can be saved in the native backend');
 
         $db->insert('tl_calendar_events', ['pid' => $calendar, 'title' => 'Manual event', 'tstamp' => time()]);
         $manualId = (int) $db->lastInsertId();

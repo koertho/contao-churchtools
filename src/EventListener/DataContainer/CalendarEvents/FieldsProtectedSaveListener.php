@@ -21,7 +21,6 @@ use Koertho\ContaoChurchTools\Calendar\Backend\EventProtection;
 #[AsCallback(table: 'tl_calendar_events', target: 'fields.repeatEach.save', priority: -1024)]
 #[AsCallback(table: 'tl_calendar_events', target: 'fields.recurrences.save', priority: -1024)]
 #[AsCallback(table: 'tl_calendar_events', target: 'fields.repeatEnd.save', priority: -1024)]
-#[AsCallback(table: 'tl_calendar_events', target: 'fields.source.save', priority: -1024)]
 #[AsCallback(table: 'tl_calendar_events', target: 'fields.ct_sync_key.save', priority: -1024)]
 #[AsCallback(table: 'tl_calendar_events', target: 'fields.ct_calendar_id.save', priority: -1024)]
 #[AsCallback(table: 'tl_calendar_events', target: 'fields.ct_appointment_id.save', priority: -1024)]

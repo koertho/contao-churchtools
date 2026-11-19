@@ -23,7 +23,7 @@ On a native Contao calendar archive, optionally select **one** ChurchTools calen
 
 ## Editorial workflow
 
-Imported appointments are native Contao events. Their source fields and sync identifiers are protected; copying, moving and deleting imported events are blocked, including direct backend actions. Archives containing imports are also protected against destructive copy/delete operations. Editors can change editorial fields and use native publication controls to hide individual events.
+Imported appointments are native Contao events. Their source fields and sync identifiers are protected; copying, moving and deleting imported events are blocked, including direct backend actions. Archives containing imports are also protected against destructive copy/delete operations. Editors can change editorial fields, choose a native redirect target and use native publication controls to hide individual events. New imports initially use the event reader; later synchronizations preserve editorial redirect settings. A redirect bypasses the event reader and its individual and series content.
 
 The **ChurchTools series** backend module contains automatically created series templates. Grant that module and the usual field/content-element permissions to editors. Templates provide a shared teaser, full native image configuration and arbitrary Contao content elements. Templates cannot be created/copied manually or deleted while any event references them, including historical or unpublished events.
 

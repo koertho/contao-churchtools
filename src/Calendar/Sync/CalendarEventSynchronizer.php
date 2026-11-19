@@ -162,6 +162,8 @@ final class CalendarEventSynchronizer
                     ++$counts['inserted'];
                     $tags[] = 'contao.db.tl_calendar_events.'.$eventId;
                 } else {
+                    // The default is needed only for new events; an editor owns the redirect afterwards.
+                    unset($fields['source']);
                     $eventId = (int) $event['id'];
                     $reactivate = !in_array($event['published'], [true, 1, '1'], true) && $event['ct_unpublished_by_sync'] === '1';
                     $changed = $event['ct_hash'] !== $fields['ct_hash'] || $previousSeries !== $seriesId || $imageChanged;

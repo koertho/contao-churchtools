@@ -50,7 +50,7 @@ final class SynchronizerTest extends TestCase
         $this->db = DriverManager::getConnection($params);
         foreach ([
             'CREATE TEMPORARY TABLE tl_calendar (id INT UNSIGNED PRIMARY KEY, ct_calendar_id INT UNSIGNED NULL, ct_last_sync INT NULL, ct_sync_error TEXT NULL, ct_sync_counts TEXT NULL, jumpTo INT NOT NULL DEFAULT 0)',
-            "CREATE TEMPORARY TABLE tl_calendar_events (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,tstamp INT NOT NULL DEFAULT 0,title VARCHAR(255) NOT NULL DEFAULT '',alias VARCHAR(255) NOT NULL DEFAULT '',published TINYINT NOT NULL DEFAULT 0,source VARCHAR(12) NOT NULL DEFAULT '',recurring TINYINT NOT NULL DEFAULT 0,addTime TINYINT NOT NULL DEFAULT 0,startDate BIGINT NOT NULL DEFAULT 0,endDate BIGINT NOT NULL DEFAULT 0,startTime BIGINT NOT NULL DEFAULT 0,endTime BIGINT NOT NULL DEFAULT 0,location TEXT NULL,address TEXT NULL,teaser TEXT NULL,ct_sync_key VARCHAR(64) NULL,ct_calendar_id INT NULL,ct_appointment_id INT NULL,ct_series_template_id INT NULL,ct_hash VARCHAR(64) NULL,ct_description TEXT NULL,ct_image_src BINARY(16) NULL,ct_image_key VARCHAR(64) NULL,ct_last_sync INT NULL,ct_unpublished_by_sync CHAR(1) NOT NULL DEFAULT '',UNIQUE KEY sync_key(pid,ct_sync_key))",
+            "CREATE TEMPORARY TABLE tl_calendar_events (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,tstamp INT NOT NULL DEFAULT 0,title VARCHAR(255) NOT NULL DEFAULT '',alias VARCHAR(255) NOT NULL DEFAULT '',published TINYINT NOT NULL DEFAULT 0,source VARCHAR(12) NOT NULL DEFAULT '',url VARCHAR(2048) NOT NULL DEFAULT '',target TINYINT NOT NULL DEFAULT 0,recurring TINYINT NOT NULL DEFAULT 0,addTime TINYINT NOT NULL DEFAULT 0,startDate BIGINT NOT NULL DEFAULT 0,endDate BIGINT NOT NULL DEFAULT 0,startTime BIGINT NOT NULL DEFAULT 0,endTime BIGINT NOT NULL DEFAULT 0,location TEXT NULL,address TEXT NULL,teaser TEXT NULL,ct_sync_key VARCHAR(64) NULL,ct_calendar_id INT NULL,ct_appointment_id INT NULL,ct_series_template_id INT NULL,ct_hash VARCHAR(64) NULL,ct_description TEXT NULL,ct_image_src BINARY(16) NULL,ct_image_key VARCHAR(64) NULL,ct_last_sync INT NULL,ct_unpublished_by_sync CHAR(1) NOT NULL DEFAULT '',UNIQUE KEY sync_key(pid,ct_sync_key))",
             "CREATE TEMPORARY TABLE tl_ct_series_templates (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,tstamp INT NOT NULL DEFAULT 0,ct_appointment_id INT UNSIGNED UNIQUE,title VARCHAR(255) NOT NULL DEFAULT '',teaser TEXT NULL)",
             "CREATE TEMPORARY TABLE tl_content (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,pid INT UNSIGNED NOT NULL,ptable VARCHAR(64) NOT NULL DEFAULT '')",
         ] as $sql) {
@@ -97,6 +97,25 @@ final class SynchronizerTest extends TestCase
     private function event(): array
     {
         return $this->db->fetchAssociative('SELECT * FROM tl_calendar_events ORDER BY id LIMIT 1');
+    }
+
+    public function testEditorialRedirectSurvivesSourceAndImageUpdates(): void
+    {
+        $this->remote->rows[0]['appointment']['base']['image'] = ['id' => 7, 'imageUrl' => 'https://example.org/images/7/photo'];
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame('default', $this->event()['source']);
+        $this->db->update('tl_calendar_events', ['source' => 'external', 'url' => 'https://example.org/event', 'target' => 1], ['id' => $this->event()['id']]);
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame('external', $this->event()['source']);
+        $this->remote->rows[0]['appointment']['base']['title'] = 'Updated by ChurchTools';
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame('external', $this->event()['source']);
+        self::assertSame('https://example.org/event', $this->event()['url']);
+        self::assertSame(1, (int) $this->event()['target']);
+        $this->imageUuid = 'ABCDEFGHIJKLMNOP';
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame('external', $this->event()['source']);
+        self::assertSame('https://example.org/event', $this->event()['url']);
     }
 
     public function testImageChangesAndFailuresPreserveEditorialState(): void

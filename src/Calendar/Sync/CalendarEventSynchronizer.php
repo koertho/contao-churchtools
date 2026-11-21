@@ -11,23 +11,24 @@ use Contao\PageModel;
 use Doctrine\DBAL\Connection;
 use Koertho\ContaoChurchTools\Api\ApiException;
 use Koertho\ContaoChurchTools\Calendar\Image\CachedImageStoreInterface;
+use Koertho\ContaoChurchTools\Calendar\Image\ImageImportException;
 use Psr\Log\LoggerInterface;
 
-final class CalendarEventSynchronizer
+final readonly class CalendarEventSynchronizer
 {
     public function __construct(
-        private readonly SnapshotFetcher $fetcher,
-        private readonly CalendarEventMapper $mapper,
-        private readonly SeriesTemplateManager $series,
-        private readonly Connection $connection,
-        private readonly ContaoFramework $framework,
-        private readonly CacheTagManager $cacheTags,
-        private readonly LoggerInterface $logger,
-        private readonly Slug $slug,
-        private readonly CachedImageStoreInterface $images,
-        private readonly int $pastMonths = 1,
-        private readonly int $futureMonths = 6,
-        private readonly string $imagePath = 'churchtools-import',
+        private SnapshotFetcher           $fetcher,
+        private CalendarEventMapper       $mapper,
+        private SeriesTemplateManager     $series,
+        private Connection                $connection,
+        private ContaoFramework           $framework,
+        private CacheTagManager           $cacheTags,
+        private LoggerInterface           $logger,
+        private Slug                      $slug,
+        private CachedImageStoreInterface $images,
+        private int                       $pastMonths = 1,
+        private int                       $futureMonths = 6,
+        private string                    $imagePath = 'churchtools-import',
     ) {
     }
 
@@ -102,13 +103,27 @@ final class CalendarEventSynchronizer
                 }
             }
             $images = [];
+            $imageFailures = [];
             foreach ($imageInputs as $imageKey => $image) {
                 try {
                     $images[$imageKey] = $this->images->obtain($image);
-                } catch (\Throwable) {
-                    // Neither the URL nor the upstream response belong in logs.
-                    $this->logger->warning('ChurchTools image import failed; the previous local image is retained and the next synchronization will retry.', ['archive' => $id, 'image' => $image['id']]);
+                } catch (\Throwable $error) {
+                    // Only fixed categories are logged: exception messages can contain secrets.
+                    $reason = $error instanceof ImageImportException ? match ($error->getMessage()) {
+                        'Invalid ChurchTools image reference.' => 'invalid_reference',
+                        'ChurchTools image is not publicly accessible.' => 'not_publicly_accessible',
+                        'ChurchTools image is too large.' => 'image_too_large',
+                        'Invalid ChurchTools image data.' => 'invalid_image_data',
+                        'Unable to download ChurchTools image.' => 'download_failed',
+                        'Invalid event alias for ChurchTools image path.', 'Missing event context for ChurchTools image path.', 'Invalid ChurchTools image path.' => 'invalid_image_path',
+                        'ChurchTools image directory is not public.', 'Conflicting public image directory.', 'Unable to publish ChurchTools image directory.' => 'public_directory_error',
+                        default => 'storage_or_registration_error',
+                    } : 'unexpected_error';
+                    $imageFailures[$image['id']][$reason] = ($imageFailures[$image['id']][$reason] ?? 0) + 1;
                 }
+            }
+            foreach ($imageFailures as $imageId => $reasons) {
+                $this->logger->notice('ChurchTools image import failed; the previous local image is retained and the next synchronization will retry.', ['archive' => $id, 'image' => $imageId, 'failures' => $reasons]);
             }
             if ((int) $db->fetchOne('SELECT GET_LOCK(?,5)', [$lock]) !== 1) {
                 return ['status' => 'locked'];

@@ -31,8 +31,10 @@ final class SynchronizerTest extends TestCase
     private bool $cacheFailure = false;
     private bool $slugFailure = false;
     private array $warnings = [];
+    private array $logs = [];
     private array $imageCalls = [];
     private bool $imageFailure = false;
+    private ?\Throwable $imageException = null;
     private string $imageUuid = '1234567890123456';
 
     protected function setUp(): void
@@ -70,13 +72,14 @@ final class SynchronizerTest extends TestCase
         $cache->method('invalidateTags')->willReturnCallback(function (array $tags) use ($cache): CacheTagManager { if ($this->cacheFailure) throw new \RuntimeException('synthetic cache failure'); $this->invalidated = array_merge($this->invalidated, $tags); return $cache; });
         $slug = $this->createStub(Slug::class);
         $slug->method('generate')->willReturnCallback(function (string $title): string { if ($this->slugFailure) throw new \RuntimeException('synthetic slug failure'); return strtolower(str_replace(' ', '-', $title)); });
-        $logger = new class(function (array $context): void { $this->warnings[] = $context; }) extends \Psr\Log\AbstractLogger {
+        $logger = new class(function ($level, string $message, array $context): void { $this->warnings[] = $context; $this->logs[] = [$level, $message, $context]; }) extends \Psr\Log\AbstractLogger {
             public function __construct(private readonly \Closure $capture) {}
-            public function log($level, string|\Stringable $message, array $context = []): void { ($this->capture)($context); }
+            public function log($level, string|\Stringable $message, array $context = []): void { ($this->capture)($level, (string) $message, $context); }
         };
         $images = $this->createStub(CachedImageStoreInterface::class);
         $images->method('obtain')->willReturnCallback(function (array $image): string {
             $this->imageCalls[] = $image;
+            if ($this->imageException !== null) throw $this->imageException;
             if ($this->imageFailure) throw new \RuntimeException('private diagnostic');
             return $this->imageUuid;
         });
@@ -97,6 +100,31 @@ final class SynchronizerTest extends TestCase
     private function event(): array
     {
         return $this->db->fetchAssociative('SELECT * FROM tl_calendar_events ORDER BY id LIMIT 1');
+    }
+
+    public function testRepeatedImageFailuresAreReportedOncePerImageWithoutPrivateDiagnostics(): void
+    {
+        $first = RemoteFixture::row('first');
+        $first['appointment']['base']['image'] = ['id' => 7, 'imageUrl' => 'https://example.org/images/7/private-secret'];
+        $second = RemoteFixture::row('second', '2026-09-21T08:00:00Z', '2026-09-21T09:00:00Z');
+        $second['appointment']['base']['image'] = $first['appointment']['base']['image'];
+        $this->remote->rows = [$first, $second];
+        $this->imageFailure = true;
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertCount(2, $this->imageCalls);
+        self::assertCount(1, $this->logs);
+        self::assertSame('notice', $this->logs[0][0]);
+        self::assertSame(7, $this->logs[0][2]['image']);
+        self::assertSame(['unexpected_error' => 2], $this->logs[0][2]['failures']);
+        self::assertStringNotContainsString('private', json_encode($this->logs));
+    }
+
+    public function testImageFailureReportsSafeCategory(): void
+    {
+        $this->remote->rows[0]['appointment']['base']['image'] = ['id' => 7, 'imageUrl' => 'https://example.org/images/7/photo'];
+        $this->imageException = new \Koertho\ContaoChurchTools\Calendar\Image\ImageImportException('ChurchTools image is not publicly accessible.');
+        self::assertSame('success', $this->runSync()['status']);
+        self::assertSame(['not_publicly_accessible' => 1], $this->logs[0][2]['failures']);
     }
 
     public function testEditorialRedirectSurvivesSourceAndImageUpdates(): void

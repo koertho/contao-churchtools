@@ -3,9 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'MOD.church_tools.0' => 'ChurchTools',
-    'MOD.church_tools_events.0' => 'Events',
-    'MOD.church_tools_events.1' => 'Manage ChurchTools archives and synchronized appointments.',
-    'MOD.tl_church_tools_archive' => 'Archives',
-    'MOD.tl_church_tools_entry' => 'Appointments',
+    'MOD.tl_ct_series_templates' => 'ChurchTools series',
+    'MOD.ct_series.0' => 'ChurchTools series',
+    'MOD.ct_series.1' => 'Manage shared content for recurring ChurchTools appointments.',
 ];

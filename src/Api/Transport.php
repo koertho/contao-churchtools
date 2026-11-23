@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\Api;
+namespace Koertho\ContaoChurchTools\Api;
 
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;

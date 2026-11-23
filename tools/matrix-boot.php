@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Contao\ManagerBundle\HttpKernel\ContaoKernel;
-use Koertho\ChurchToolsBundle\ChurchToolsBundle;
+use Koertho\ContaoChurchTools\ChurchToolsBundle;
 use Symfony\Component\Console\Input\ArrayInput;
 
 require __DIR__.'/vendor/autoload.php';
@@ -21,6 +21,13 @@ $command = $application->find('church-tools:setup-token');
 $output = new \Symfony\Component\Console\Output\BufferedOutput();
 if ($command->run(new ArrayInput([]), $output) !== 2) {
     throw new RuntimeException('Missing explicit output should fail before any network request.');
+}
+$sync = $application->find('koertho:churchtools:calendar:sync');
+if ($application->find('church-tools:sync') !== $sync) {
+    throw new RuntimeException('Legacy sync command alias is not registered.');
+}
+if ($sync->run(new ArrayInput(['--archive' => '0']), $output) !== 2) {
+    throw new RuntimeException('Invalid archive should fail before any network or database request.');
 }
 printf("Boot/manager/config/command: PASS; PHP %s; Contao %s; Symfony %s\n", PHP_VERSION, \Composer\InstalledVersions::getPrettyVersion('contao/core-bundle'), \Composer\InstalledVersions::getPrettyVersion('symfony/framework-bundle'));
 $kernel->shutdown();

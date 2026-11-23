@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Koertho\ChurchToolsBundle\Tests;
+namespace Koertho\ContaoChurchTools\Tests;
 
-use Koertho\ChurchToolsBundle\Api\ApiException;
-use Koertho\ChurchToolsBundle\Api\ChurchToolsClient;
-use Koertho\ChurchToolsBundle\Api\Transport;
+use Koertho\ContaoChurchTools\Api\ApiException;
+use Koertho\ContaoChurchTools\Api\ChurchToolsClient;
+use Koertho\ContaoChurchTools\Api\Transport;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;

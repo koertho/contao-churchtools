@@ -15,13 +15,13 @@ jobs:
         image: mariadb:10.11
         env:
           MARIADB_ROOT_PASSWORD: matrix
-          MARIADB_DATABASE: churchtools_step3_ci
+          MARIADB_DATABASE: churchtools_v2_ci
         ports: ['3306:3306']
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=10s --health-timeout=5s --health-retries=10
     env:
-      CHURCHTOOLS_TEST_DATABASE_URL: mysql://root:matrix@127.0.0.1:3306/churchtools_step3_ci
+      CHURCHTOOLS_TEST_DATABASE_URL: mysql://root:matrix@127.0.0.1:3306/churchtools_v2_ci
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -31,6 +31,7 @@ jobs:
           tools: composer:v2
           coverage: none
       - run: composer validate --strict --no-check-lock
+      - run: php tools/check-syntax.php
       - name: Create independent managed installation
         run: php tools/create-matrix-project.php '${{ matrix.contao }}' "$RUNNER_TEMP/churchtools-matrix"
       - name: Resolve and install
@@ -43,17 +44,16 @@ jobs:
         run: php "$RUNNER_TEMP/churchtools-matrix/matrix-boot.php"
       - name: Controlled client and setup tests with target dependencies
         run: php "$RUNNER_TEMP/churchtools-matrix/vendor/bin/phpunit" --bootstrap "$RUNNER_TEMP/churchtools-matrix/vendor/autoload.php" --configuration phpunit.xml.dist
-      - name: Preview isolated DCA schema
-        run: php tools/storage-test.php "$RUNNER_TEMP/churchtools-matrix"
-      - name: Install and verify isolated storage
-        run: php tools/storage-test.php "$RUNNER_TEMP/churchtools-matrix" --apply
-      - name: Verify transactional synchronization and safe cleanup
-        run: php tools/sync-test.php "$RUNNER_TEMP/churchtools-matrix"
-      - name: Preview missing backend core tables in isolated database
-        run: php tools/backend-schema.php "$RUNNER_TEMP/churchtools-matrix"
-      - name: Install only missing backend core tables
-        run: php tools/backend-schema.php "$RUNNER_TEMP/churchtools-matrix" --apply
-      - name: Authenticated backend, permissions and API outage acceptance
-        run: php tools/backend-test.php "$RUNNER_TEMP/churchtools-matrix"
-      - name: Event action concurrency and rollback acceptance
-        run: php tools/event-test.php "$RUNNER_TEMP/churchtools-matrix"
+      - name: Preview isolated native calendar and series schema
+        run: php tools/calendar-test.php "$RUNNER_TEMP/churchtools-matrix"
+      - name: Native schema, backend and frontend acceptance
+        run: php tools/calendar-test.php "$RUNNER_TEMP/churchtools-matrix" --apply
+      - name: Authenticated backend form and destructive-action acceptance
+        run: php tools/backend-http-test.php "$RUNNER_TEMP/churchtools-matrix"
+      - name: Unit and transactional synchronization tests
+        run: php "$RUNNER_TEMP/churchtools-matrix/vendor/bin/phpunit" --bootstrap "$RUNNER_TEMP/churchtools-matrix/vendor/autoload.php" --configuration phpunit.xml.dist
+      - name: Container and Twig validation
+        working-directory: ${{ runner.temp }}/churchtools-matrix
+        run: |
+          php vendor/bin/contao-console lint:container
+          php vendor/bin/contao-console lint:twig "$GITHUB_WORKSPACE/contao/templates"

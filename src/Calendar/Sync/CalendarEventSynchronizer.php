@@ -1,0 +1,264 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Koertho\ContaoChurchTools\Calendar\Sync;
+
+use Contao\CoreBundle\Cache\CacheTagManager;
+use Contao\CoreBundle\Framework\ContaoFramework;
+use Contao\CoreBundle\Slug\Slug;
+use Contao\PageModel;
+use Doctrine\DBAL\Connection;
+use Koertho\ContaoChurchTools\Api\ApiException;
+use Koertho\ContaoChurchTools\Calendar\Image\CachedImageStoreInterface;
+use Koertho\ContaoChurchTools\Calendar\Image\ImageImportException;
+use Psr\Log\LoggerInterface;
+
+final readonly class CalendarEventSynchronizer
+{
+    public function __construct(
+        private SnapshotFetcher           $fetcher,
+        private CalendarEventMapper       $mapper,
+        private SeriesTemplateManager     $series,
+        private Connection                $connection,
+        private ContaoFramework           $framework,
+        private CacheTagManager           $cacheTags,
+        private LoggerInterface           $logger,
+        private Slug                      $slug,
+        private CachedImageStoreInterface $images,
+        private int                       $pastMonths = 1,
+        private int                       $futureMonths = 6,
+        private string                    $imagePath = 'churchtools-import',
+    ) {
+    }
+
+    /** Only local IDs, fixed diagnostics and counters leave the synchronizer. */
+    public function synchronize(?int $archiveId = null, ?\DateTimeImmutable $now = null): array
+    {
+        $this->framework->initialize();
+        $now ??= new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $window = SyncWindow::at($now, $this->pastMonths, $this->futureMonths);
+        $timezone = new \DateTimeZone(date_default_timezone_get());
+        $ids = $archiveId === null ? $this->connection->fetchFirstColumn('SELECT c.id FROM tl_calendar c WHERE c.ct_calendar_id IS NOT NULL OR EXISTS (SELECT 1 FROM tl_calendar_events e WHERE e.pid=c.id AND e.ct_sync_key IS NOT NULL) ORDER BY c.id') : [$archiveId];
+        $results = [];
+        foreach ($ids as $id) {
+            $results[(int) $id] = $this->archive((int) $id, $window, $timezone, $now->getTimestamp());
+        }
+
+        return $results;
+    }
+
+    private function archive(int $id, SyncWindow $window, \DateTimeZone $timezone, int $now): array
+    {
+        $db = $this->connection;
+        $lock = 'ct-calendar:'.substr(hash('sha256', $db->getDatabase().':'.$id), 0, 48);
+        $fetchLock = 'ct-fetch:'.substr(hash('sha256', $db->getDatabase().':'.$id), 0, 48);
+        if ((int) $db->fetchOne('SELECT GET_LOCK(?,0)', [$fetchLock]) !== 1) {
+            return ['status' => 'locked'];
+        }
+        $writeLocked = false;
+        $transaction = false;
+        $committed = false;
+        $counts = array_fill_keys(['inserted', 'updated', 'unchanged', 'unpublished', 'reactivated', 'seriesUpdated'], 0);
+        try {
+            $archive = $db->fetchAssociative('SELECT * FROM tl_calendar WHERE id=?', [$id]);
+            if (!$archive) {
+                return ['status' => 'missing'];
+            }
+            $calendarId = $archive['ct_calendar_id'] === null ? null : (int) $archive['ct_calendar_id'];
+            $snapshot = $this->fetcher->fetch($calendarId === null ? [] : [$calendarId], $window);
+            $mapped = [];
+            $imageInputs = [];
+            $imageKeys = [];
+            $imageAliases = [];
+            $aliases = [];
+            $reserved = [];
+            if (str_contains($this->imagePath, '{alias}')) {
+                foreach ($db->fetchAllAssociative('SELECT ct_sync_key, alias FROM tl_calendar_events WHERE pid=? AND ct_sync_key IS NOT NULL', [$id]) as $existingAlias) {
+                    $aliases[$existingAlias['ct_sync_key']] = $existingAlias['alias'];
+                }
+            }
+            foreach ($snapshot as $item) {
+                if ($item['internal'] || $window->outside($item['fields']) !== null) {
+                    continue;
+                }
+                try {
+                    $fields = $this->mapper->map($item['fields'], $timezone);
+                } catch (\DomainException $error) {
+                    throw new ApiException(sprintf('Unsupported ChurchTools occurrence: calendar %d, appointment %d, UID SHA-256 %s. %s', $item['fields']['sourceCalendarId'], $item['fields']['sourceAppointmentId'], hash('sha256', $item['fields']['occurrenceUid']), $error->getMessage()));
+                }
+                $mapped[$fields['ct_sync_key']] = $fields;
+                $source = $item['fields'];
+                if ($source['sourceImageId'] !== null) {
+                    $alias = '';
+                    if (str_contains($this->imagePath, '{alias}')) {
+                        $alias = $aliases[$fields['ct_sync_key']] ?? $this->slug->generate($fields['_sourceTitle'].'-'.$fields['_localDate'], (int) $archive['jumpTo'], static fn (string $value): bool => isset($reserved[$value]) || (bool) $db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$value]));
+                        $reserved[$alias] = true;
+                        $imageAliases[$fields['ct_sync_key']] = $alias;
+                    }
+                    $context = strtr($this->imagePath, ['{year}' => substr($fields['_localDate'], 0, 4), '{month}' => substr($fields['_localDate'], 5, 2), '{day}' => substr($fields['_localDate'], 8, 2), '{alias}' => $alias]);
+                    $imageKey = hash('sha256', $source['sourceImageId']."\n".$source['sourceImageUrl'].($this->imagePath === 'churchtools-import' ? '' : "\n".$context));
+                    $imageKeys[$fields['ct_sync_key']] = $imageKey;
+                    $imageInputs[$imageKey] = ['id' => $source['sourceImageId'], 'url' => $source['sourceImageUrl'], 'date' => $fields['_localDate'], 'alias' => $alias];
+                }
+            }
+            $images = [];
+            $imageFailures = [];
+            foreach ($imageInputs as $imageKey => $image) {
+                try {
+                    $images[$imageKey] = $this->images->obtain($image);
+                } catch (\Throwable $error) {
+                    // Only fixed categories are logged: exception messages can contain secrets.
+                    $reason = $error instanceof ImageImportException ? match ($error->getMessage()) {
+                        'Invalid ChurchTools image reference.' => 'invalid_reference',
+                        'ChurchTools image is not publicly accessible.' => 'not_publicly_accessible',
+                        'ChurchTools image is too large.' => 'image_too_large',
+                        'Invalid ChurchTools image data.' => 'invalid_image_data',
+                        'Unable to download ChurchTools image.' => 'download_failed',
+                        'Invalid event alias for ChurchTools image path.', 'Missing event context for ChurchTools image path.', 'Invalid ChurchTools image path.' => 'invalid_image_path',
+                        'ChurchTools image directory is not public.', 'Conflicting public image directory.', 'Unable to publish ChurchTools image directory.' => 'public_directory_error',
+                        default => 'storage_or_registration_error',
+                    } : 'unexpected_error';
+                    $imageFailures[$image['id']][$reason] = ($imageFailures[$image['id']][$reason] ?? 0) + 1;
+                }
+            }
+            foreach ($imageFailures as $imageId => $reasons) {
+                $this->logger->notice('ChurchTools image import failed; the previous local image is retained and the next synchronization will retry.', ['archive' => $id, 'image' => $imageId, 'failures' => $reasons]);
+            }
+            if ((int) $db->fetchOne('SELECT GET_LOCK(?,5)', [$lock]) !== 1) {
+                return ['status' => 'locked'];
+            }
+            $writeLocked = true;
+            $db->beginTransaction();
+            $transaction = true;
+            $current = $db->fetchAssociative('SELECT * FROM tl_calendar WHERE id=? FOR UPDATE', [$id]);
+            if (!$current || ($current['ct_calendar_id'] === null ? null : (int) $current['ct_calendar_id']) !== $calendarId) {
+                throw new ApiException('Calendar assignment changed during retrieval; archive unchanged.');
+            }
+            $existing = [];
+            foreach ($db->fetchAllAssociative('SELECT * FROM tl_calendar_events WHERE pid=? AND ct_sync_key IS NOT NULL FOR UPDATE', [$id]) as $event) {
+                $existing[$event['ct_sync_key']] = $event;
+            }
+            $tags = [];
+            $warnings = [];
+            foreach ($mapped as $key => $fields) {
+                $event = $existing[$key] ?? null;
+                $previousSeries = empty($event['ct_series_template_id']) ? null : (int) $event['ct_series_template_id'];
+                [$seriesId, $changedSeries] = $this->series->synchronize($fields, $previousSeries, $now);
+                foreach ($changedSeries as $changedId) {
+                    $tags[] = 'contao.db.tl_ct_series_templates.'.$changedId;
+                    ++$counts['seriesUpdated'];
+                }
+                $rawTitle = $fields['_sourceTitle'];
+                $localDate = $fields['_localDate'];
+                unset($fields['_sourceTitle'], $fields['_localDate'], $fields['_repeatId']);
+                $fields['ct_series_template_id'] = $seriesId;
+                $fields['ct_last_sync'] = $now;
+                $alias = $event['alias'] ?? null;
+                if ($event === null) {
+                    $candidate = $imageAliases[$key] ?? null;
+                    $alias = $candidate !== null && !$db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$candidate]) ? $candidate : $this->slug->generate($rawTitle.'-'.$localDate, (int) $archive['jumpTo'], static fn (string $value): bool => (bool) $db->fetchOne('SELECT id FROM tl_calendar_events WHERE alias=? LIMIT 1', [$value]));
+                    if ($alias === '' || strlen($alias) > 255) {
+                        throw new \DomainException('Generated alias exceeds native event limits.');
+                    }
+                }
+                $imageKey = $imageKeys[$key] ?? null;
+                $imageFields = $imageKey === null ? ['ct_image_src' => null, 'ct_image_key' => null]
+                    : (isset($images[$imageKey]) ? ['ct_image_src' => $images[$imageKey], 'ct_image_key' => $imageKey] : []);
+                if (isset($imageAliases[$key]) && $imageAliases[$key] !== $alias) {
+                    // An editor changed the alias during retrieval; retry with the new path next run.
+                    $imageFields = [];
+                }
+                $imageChanged = $event !== null && $imageFields !== [] && (($event['ct_image_src'] ?? null) !== $imageFields['ct_image_src'] || ($event['ct_image_key'] ?? null) !== $imageFields['ct_image_key']);
+                $fields += $imageFields;
+                if ($event === null) {
+                    $db->insert('tl_calendar_events', $fields + ['pid' => $id, 'tstamp' => $now, 'published' => '1', 'ct_unpublished_by_sync' => '', 'alias' => $alias]);
+                    $eventId = (int) $db->lastInsertId();
+                    ++$counts['inserted'];
+                    $tags[] = 'contao.db.tl_calendar_events.'.$eventId;
+                } else {
+                    // The default is needed only for new events; an editor owns the redirect afterwards.
+                    unset($fields['source']);
+                    $eventId = (int) $event['id'];
+                    $reactivate = !in_array($event['published'], [true, 1, '1'], true) && $event['ct_unpublished_by_sync'] === '1';
+                    $changed = $event['ct_hash'] !== $fields['ct_hash'] || $previousSeries !== $seriesId || $imageChanged;
+                    if ($changed || $reactivate) {
+                        $update = $changed ? $fields : ['ct_last_sync' => $now];
+                        $update['tstamp'] = $now;
+                        if ($reactivate) {
+                            $update['published'] = '1';
+                            $update['ct_unpublished_by_sync'] = '';
+                            ++$counts['reactivated'];
+                        }
+                        $db->update('tl_calendar_events', $update, ['id' => $eventId]);
+                        ++$counts['updated'];
+                        $tags[] = 'contao.db.tl_calendar_events.'.$eventId;
+                    } else {
+                        $db->update('tl_calendar_events', ['ct_last_sync' => $now], ['id' => $eventId]);
+                        ++$counts['unchanged'];
+                    }
+                }
+                unset($existing[$key]);
+            }
+            foreach ($existing as $event) {
+                // Date-only all-day bounds must be compared as local calendar dates,
+                // not against UTC instants (especially at the upper boundary).
+                $start = (int) $event['startTime'];
+                $end = (int) $event['endTime'];
+                $timed = in_array($event['addTime'], [true, 1, '1'], true);
+                $inside = $timed
+                    ? $start < $window->to->getTimestamp() && ($end > $window->from->getTimestamp() || ($start === $end && $end === $window->from->getTimestamp()))
+                    : (new \DateTimeImmutable('@'.$start))->setTimezone($timezone)->format('Y-m-d') < $window->to->format('Y-m-d')
+                        && (new \DateTimeImmutable('@'.$end))->setTimezone($timezone)->format('Y-m-d') >= $window->from->format('Y-m-d');
+                if (!$inside || !in_array($event['published'], [true, 1, '1'], true)) {
+                    continue;
+                }
+                $eventId = (int) $event['id'];
+                $db->update('tl_calendar_events', ['published' => '0', 'ct_unpublished_by_sync' => '1', 'tstamp' => $now], ['id' => $eventId]);
+                ++$counts['unpublished'];
+                $tags[] = 'contao.db.tl_calendar_events.'.$eventId;
+                if ($db->fetchOne("SELECT id FROM tl_content WHERE pid=? AND ptable='tl_calendar_events' LIMIT 1", [$eventId])) {
+                    $warnings[] = $eventId;
+                }
+            }
+            $db->update('tl_calendar', ['ct_last_sync' => $now, 'ct_sync_error' => null, 'ct_sync_counts' => json_encode($counts, JSON_THROW_ON_ERROR)], ['id' => $id]);
+            if ($tags !== []) {
+                $tags[] = 'contao.db.tl_calendar.'.$id;
+                $tags[] = 'contao.db.tl_calendar_events';
+            }
+            if (($counts['inserted'] + $counts['updated'] + $counts['unpublished']) > 0 && (int) $current['jumpTo'] > 0) {
+                // Match the native calendar DCA's sitemap invalidation: source changes
+                // bypass its model callbacks, including the reader page's root tag.
+                $reader = $this->framework->getAdapter(PageModel::class)->findWithDetails((int) $current['jumpTo']);
+                if ($reader !== null && (int) $reader->rootId > 0) {
+                    $tags[] = 'contao.sitemap.'.(int) $reader->rootId;
+                }
+            }
+            $db->commit();
+            $transaction = false;
+            $committed = true;
+            if ($tags !== []) {
+                $this->cacheTags->invalidateTags(array_values(array_unique($tags)));
+            }
+            foreach ($warnings as $eventId) {
+                $this->logger->warning('ChurchTools occurrence disappeared; individual content was retained on the unpublished event. Review a possible move or series split.', ['archive' => $id, 'event' => $eventId]);
+            }
+
+            return ['status' => 'success'] + $counts;
+        } catch (\Throwable $error) {
+            if ($transaction) {
+                $db->rollBack();
+            }
+            $message = $committed ? 'Synchronization committed; post-commit cache invalidation or reporting failed. Retry cache invalidation.'
+                : ($error instanceof ApiException ? $error->getMessage() : 'Synchronization validation or storage failed; archive unchanged.');
+            $db->update('tl_calendar', ['ct_sync_error' => $message], ['id' => $id]);
+
+            return ['status' => $committed ? 'committed_cache_error' : 'failed', 'error' => $message] + ($committed ? $counts : []);
+        } finally {
+            if ($writeLocked) {
+                $db->fetchOne('SELECT RELEASE_LOCK(?)', [$lock]);
+            }
+            $db->fetchOne('SELECT RELEASE_LOCK(?)', [$fetchLock]);
+        }
+    }
+}

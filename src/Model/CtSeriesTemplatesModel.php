@@ -1,0 +1,15 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Koertho\ContaoChurchTools\Model;
+
+use Contao\Model;
+use Contao\Model\MetadataTrait;
+
+final class CtSeriesTemplatesModel extends Model
+{
+    use MetadataTrait;
+
+    protected static $strTable = 'tl_ct_series_templates';
+}
